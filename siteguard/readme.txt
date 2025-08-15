@@ -1,10 +1,10 @@
 === SiteGuard WP Plugin ===
 Contributors: jp-secure
 Donate link: -
-Tags: security, waf, brute force, password list, login lock, login alert, captcha, pingback, fail once
+Tags: security, login lock, login alert, captcha, pingback
 Requires at least: 3.9
-Tested up to: 6.6
-Stable tag: 1.7.8
+Tested up to: 6.8
+Stable tag: 1.7.9
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -106,6 +106,8 @@ If you have created your own language pack, or have an update of an existing one
 [Japanese Page](https://www.jp-secure.com/siteguard_wp_plugin/faq/)
 
 == Changelog ==
+= 1.7.9 =
+* Fix a deprecated notice for get_currentuserinfo() function.
 = 1.7.8 =
 * Fix a warning that occurred from ver1.7.7
 = 1.7.7 =

@@ -88,14 +88,13 @@ class SiteGuard_LoginHistory extends SiteGuard_Base {
 		return true;
 	}
 	function add_operation( $operation, $user_login, $type = SITEGUARD_LOGIN_TYPE_NORMAL ) {
-		global $current_user;
 		global $wpdb;
 
 		if ( '' != $user_login ) {
 			$user = $user_login;
 		} else {
-			get_currentuserinfo();
-			$user = $current_user->user_login;
+			$current_user = wp_get_current_user();
+			$user         = $current_user->user_login;
 		}
 		$table_name = $wpdb->prefix . SITEGUARD_TABLE_HISTORY;
 

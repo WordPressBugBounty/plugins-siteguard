@@ -19,7 +19,6 @@ function siteguard_error_dump( $title, $obj ) {
 
 function siteguard_rand( $min = null, $max = null ) {
 	$ret = 0;
-	mt_srand();
 	if ( $min === null or $max === null ) {
 		$ret = mt_rand();
 	} else {
@@ -121,7 +120,7 @@ class SiteGuard_Base {
 				'timeout' => 2,
 			),
 		);
-		$ip      = file_get_contents( $url, false, stream_context_create( $options ) );
+		$ip      = @file_get_contents( $url, false, stream_context_create( $options ) );
 		if ( false !== $ip ) {
 			if ( preg_match( '/[0-9.:]+/', $ip ) ) {
 				return $ip;
@@ -131,7 +130,7 @@ class SiteGuard_Base {
 		$host = parse_url( home_url(), PHP_URL_HOST );
 		if ( false !== $host && null !== $host ) {
 			putenv( 'RES_OPTIONS=retrans:1 retry:1 timeout:2 attempts:1' );
-			$ip = gethostbyname( $host );
+			$ip = @gethostbyname( $host );
 			if ( $ip !== $host ) {
 				if ( '127.0.0.1' !== $ip && '::1' !== $ip ) {
 					if ( preg_match( '/[0-9.:]+/', $ip ) ) {
@@ -148,7 +147,8 @@ class SiteGuard_Base {
 		|| ! is_string( $_SERVER['REMOTE_ADDR'] )
 		|| '' === $_SERVER['REMOTE_ADDR']
 		) {
-			throw new MyPluginBrokenEnvironment( 'Your webserver is misconfigured. REMOTE_ADDR is not set.' );
+			siteguard_error_log( 'Your webserver is misconfigured. REMOTE_ADDR is not set.' );
+			return '0.0.0.0';
 		}
 		return sanitize_text_field( $_SERVER['REMOTE_ADDR'] );
 	}
