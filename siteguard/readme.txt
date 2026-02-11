@@ -3,7 +3,7 @@ Contributors: jp-secure
 Donate link: -
 Tags: security, login lock, login alert, captcha, pingback
 Requires at least: 3.9
-Tested up to: 6.8
+Tested up to: 6.9
 Stable tag: 1.7.9
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
