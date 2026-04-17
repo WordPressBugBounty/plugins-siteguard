@@ -35,6 +35,7 @@ class SiteGuard_CAPTCHA extends SiteGuard_Base {
 				add_action( 'comment_form_logged_in_after', array( $this, 'handler_comment_form' ), 1 );
 				add_action( 'comment_form', array( $this, 'handler_comment_form' ) );
 				add_filter( 'preprocess_comment', array( $this, 'handler_process_comment_post' ) );
+				add_action( 'wp_footer', array( $this, 'comment_captcha_reload_script' ) );
 			}
 		}
 		if ( '1' == $siteguard_config->get( 'same_login_error' ) ) {
@@ -212,7 +213,7 @@ class SiteGuard_CAPTCHA extends SiteGuard_Base {
 	}
 	function handler_wp_authenticate_user( $user, $password ) {
 		if ( array_key_exists( 'siteguard_captcha', $_POST ) && array_key_exists( 'siteguard_captcha_prefix', $_POST ) ) {
-			if ( $this->captcha->check( $_POST['siteguard_captcha_prefix'], $_POST['siteguard_captcha'], false ) ) {
+			if ( $this->captcha->check( $_POST['siteguard_captcha_prefix'], $_POST['siteguard_captcha'], true ) ) {
 				return $user;
 			}
 		}
@@ -225,7 +226,7 @@ class SiteGuard_CAPTCHA extends SiteGuard_Base {
 	}
 	function handler_lostpassword_post() {
 		if ( array_key_exists( 'siteguard_captcha', $_POST ) && array_key_exists( 'siteguard_captcha_prefix', $_POST ) ) {
-			if ( $this->captcha->check( $_POST['siteguard_captcha_prefix'], $_POST['siteguard_captcha'], false ) ) {
+			if ( $this->captcha->check( $_POST['siteguard_captcha_prefix'], $_POST['siteguard_captcha'], true ) ) {
 				return;
 			}
 		}
@@ -233,7 +234,7 @@ class SiteGuard_CAPTCHA extends SiteGuard_Base {
 	}
 	function handler_registration_errors( $errors, $sanitized_user_login, $user_email ) {
 		if ( array_key_exists( 'siteguard_captcha', $_POST ) && array_key_exists( 'siteguard_captcha_prefix', $_POST ) ) {
-			if ( $this->captcha->check( $_POST['siteguard_captcha_prefix'], $_POST['siteguard_captcha'], false ) ) {
+			if ( $this->captcha->check( $_POST['siteguard_captcha_prefix'], $_POST['siteguard_captcha'], true ) ) {
 				return $errors;
 			}
 		}
@@ -247,11 +248,29 @@ class SiteGuard_CAPTCHA extends SiteGuard_Base {
 		}
 		if ( array_key_exists( 'siteguard_captcha', $_POST ) && array_key_exists( 'siteguard_captcha_prefix', $_POST ) ) {
 			if ( ! empty( $_POST['siteguard_captcha'] ) ) {
-				if ( $this->captcha->check( $_POST['siteguard_captcha_prefix'], $_POST['siteguard_captcha'], false ) ) {
+				if ( $this->captcha->check( $_POST['siteguard_captcha_prefix'], $_POST['siteguard_captcha'], true ) ) {
 					return $comment;
 				}
 			}
 		}
-		wp_die( esc_html__( 'ERROR: Invalid CAPTCHA.', 'siteguard' ) );
+		wp_die( esc_html__( 'ERROR: Invalid CAPTCHA.', 'siteguard' ), esc_html( 'ERROR'), array( 'back_link' => true ) );
+	}
+	public function comment_captcha_reload_script(): void {
+		if ( is_singular() && comments_open() ) {
+			?>
+			<script>
+			window.addEventListener('pageshow', function(event) {
+				var isBackForward = false;
+				if (window.performance && typeof performance.getEntriesByType === 'function') {
+					var perfEntries = performance.getEntriesByType('navigation');
+					isBackForward = perfEntries.length > 0 && perfEntries[0].type === 'back_forward';
+				}
+				if (event.persisted || isBackForward) {
+					window.location.reload();
+				}
+			});
+			</script>
+			<?php
+		}
 	}
 }
