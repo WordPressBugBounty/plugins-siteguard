@@ -255,7 +255,7 @@ class SiteGuard_CAPTCHA extends SiteGuard_Base {
 		}
 		wp_die( esc_html__( 'ERROR: Invalid CAPTCHA.', 'siteguard' ), esc_html( 'ERROR'), array( 'back_link' => true ) );
 	}
-	public function comment_captcha_reload_script(): void {
+	public function comment_captcha_reload_script( ) {
 		if ( is_singular() && comments_open() ) {
 			?>
 			<script>

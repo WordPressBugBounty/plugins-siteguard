@@ -4,7 +4,7 @@ Donate link: -
 Tags: security, login lock, login alert, captcha, pingback
 Requires at least: 3.9
 Tested up to: 7.0
-Stable tag: 1.7.10
+Stable tag: 1.7.11
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -106,6 +106,8 @@ If you have created your own language pack, or have an update of an existing one
 [Japanese Page](https://www.jp-secure.com/siteguard_wp_plugin/faq/)
 
 == Changelog ==
+= 1.7.11 =
+* Fix the problem that a syntax error occurs in PHP5.6 or earlier
 = 1.7.10 =
 * Fix a Guessable CAPTCHA vulnerability (CVE-2026-27411). Special thanks to Patchstack.
 = 1.7.9 =
