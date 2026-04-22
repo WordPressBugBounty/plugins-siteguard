@@ -26,7 +26,9 @@ class SiteGuard_Menu_Login_History extends SiteGuard_Base {
 		}
 		?>
 		<form name="form1" method="post" action="">
-		<?php $this->wp_list_table->display(); ?>
+		<?php
+		wp_nonce_field( 'siteguard_login_history_filter', 'siteguard_filter_nonce' );
+		$this->wp_list_table->display(); ?>
 		<div class="siteguard-description">
 		<?php esc_html_e( 'Login history can be referenced. Let\'s see if there are any suspicious history. History, registered 10,000 maximum, will be removed from those old and more than 10,000.', 'siteguard' ); ?>
 		</div>
@@ -35,13 +37,32 @@ class SiteGuard_Menu_Login_History extends SiteGuard_Base {
 		</div>
 		<?php
 	}
+	private static function set_cookie_int( $name, $value, $expire ) {
+		$path     = '/';
+		$secure   = is_ssl();
+		$httponly = true;
+		$samesite = 'Lax';
+
+		if ( PHP_VERSION_ID >= 70300 ) {
+			setcookie( $name, $value, [
+				'expires'  => $expire,
+				'path'	 => $path,
+				'secure'   => $secure,
+				'httponly' => $httponly,
+				'samesite' => $samesite,
+			]);
+		} else {
+			setcookie( $name, $value, $expire, $path . '; samesite=' . $samesite, '', $secure, $httponly );
+		}
+	}
 	static function clear_cookie() {
-		setcookie( 'siteguard_log_filter_operation', '', time() - 1800, '/' );
-		setcookie( 'siteguard_log_filter_type', '', time() - 1800, '/' );
-		setcookie( 'siteguard_log_filter_login_name', '', time() - 1800, '/' );
-		setcookie( 'siteguard_log_filter_ip_address', '', time() - 1800, '/' );
-		setcookie( 'siteguard_log_filter_login_name_not', '', time() - 1800, '/' );
-		setcookie( 'siteguard_log_filter_ip_address_not', '', time() - 1800, '/' );
+		$expire = time() - 1800;
+		self::set_cookie_int( 'siteguard_log_filter_operation', '', $expire );
+		self::set_cookie_int( 'siteguard_log_filter_type', '', $expire );
+		self::set_cookie_int( 'siteguard_log_filter_login_name', '', $expire );
+		self::set_cookie_int( 'siteguard_log_filter_ip_address', '', $expire );
+		self::set_cookie_int( 'siteguard_log_filter_login_name_not', '', $expire );
+		self::set_cookie_int( 'siteguard_log_filter_ip_address_not', '', $expire );
 	}
 	static function set_cookie() {
 		if ( ! isset( $_GET['page'] ) ) {
@@ -50,7 +71,9 @@ class SiteGuard_Menu_Login_History extends SiteGuard_Base {
 		if ( 'siteguard_login_history' !== $_GET['page'] ) {
 			return;
 		}
-
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
 		if ( 'POST' !== $_SERVER['REQUEST_METHOD'] ) {
 			$referer = wp_get_referer();
 			if ( false === strpos( $referer, 'siteguard_login_history' ) ) {
@@ -58,26 +81,30 @@ class SiteGuard_Menu_Login_History extends SiteGuard_Base {
 			}
 			return;
 		}
+		if ( ! isset( $_POST['siteguard_filter_nonce'] ) || ! wp_verify_nonce( $_POST['siteguard_filter_nonce'], 'siteguard_login_history_filter' ) ) {
+			return;
+		}
 		if ( isset( $_POST['filter_reset'] ) ) {
 			self::clear_cookie();
 		} else {
+			$expire = time() + 3600;
 			if ( isset( $_POST['filter_operation'] ) ) {
-				setcookie( 'siteguard_log_filter_operation', $_POST['filter_operation'], time() + 60 * 60, '/' );
+				self::set_cookie_int( 'siteguard_log_filter_operation', sanitize_text_field( $_POST['filter_operation'] ), $expire );
 			}
 			if ( isset( $_POST['filter_type'] ) ) {
-				setcookie( 'siteguard_log_filter_type', $_POST['filter_type'], time() + 60 * 60, '/' );
+				self::set_cookie_int( 'siteguard_log_filter_type', sanitize_text_field( $_POST['filter_type'] ), $expire );
 			}
 			if ( isset( $_POST['filter_login_name'] ) ) {
-				setcookie( 'siteguard_log_filter_login_name', $_POST['filter_login_name'], time() + 60 * 60, '/' );
+				self::set_cookie_int( 'siteguard_log_filter_login_name', sanitize_text_field( $_POST['filter_login_name'] ), $expire );
 			}
 			if ( isset( $_POST['filter_ip_address'] ) ) {
-				setcookie( 'siteguard_log_filter_ip_address', $_POST['filter_ip_address'], time() + 60 * 60, '/' );
+				self::set_cookie_int( 'siteguard_log_filter_ip_address', sanitize_text_field( $_POST['filter_ip_address'] ), $expire );
 			}
 			if ( isset( $_POST['filter_login_name_not'] ) ) {
-				setcookie( 'siteguard_log_filter_login_name_not', $_POST['filter_login_name_not'], time() + 60 * 60, '/' );
+				self::set_cookie_int( 'siteguard_log_filter_login_name_not', sanitize_text_field( $_POST['filter_login_name_not'] ), $expire );
 			}
 			if ( isset( $_POST['filter_ip_address_not'] ) ) {
-				setcookie( 'siteguard_log_filter_ip_address_not', $_POST['filter_ip_address_not'], time() + 60 * 60, '/' );
+				self::set_cookie_int( 'siteguard_log_filter_ip_address_not', sanitize_text_field( $_POST['filter_ip_address_not'] ), $expire );
 			}
 		}
 

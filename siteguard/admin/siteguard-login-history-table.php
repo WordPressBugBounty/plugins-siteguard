@@ -120,8 +120,10 @@ class SiteGuard_LoginHistory_Table extends WP_List_Table {
 	function get_filter_param_normal( $name, $default ) {
 		$result = $default;
 		if ( 'POST' === $_SERVER['REQUEST_METHOD'] ) {
-			if ( isset( $_POST[ $name ] ) ) {
-				$result = sanitize_text_field( $_POST[ $name ] );
+			if ( isset( $_POST['siteguard_filter_nonce'] ) && wp_verify_nonce( $_POST['siteguard_filter_nonce'], 'siteguard_login_history_filter' ) ) {
+				if ( isset( $_POST[ $name ] ) ) {
+					$result = sanitize_text_field( $_POST[ $name ] );
+				}
 			}
 		} else {
 			$cookie_name = 'siteguard_log_' . $name;
@@ -134,11 +136,13 @@ class SiteGuard_LoginHistory_Table extends WP_List_Table {
 	function get_filter_param_checkbox( $name, $default ) {
 		$result = $default;
 		if ( 'POST' === $_SERVER['REQUEST_METHOD'] ) {
-			if ( isset( $_POST['filter_action'] ) ) {
-				if ( isset( $_POST[ $name ] ) ) {
-					$result = true;
-				} else {
-					$result = false;
+			if ( isset( $_POST['siteguard_filter_nonce'] ) && wp_verify_nonce( $_POST['siteguard_filter_nonce'], 'siteguard_login_history_filter' ) ) {
+				if ( isset( $_POST['filter_action'] ) ) {
+					if ( isset( $_POST[ $name ] ) ) {
+						$result = true;
+					} else {
+						$result = false;
+					}
 				}
 			}
 		} else {
