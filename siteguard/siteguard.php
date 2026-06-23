@@ -1,17 +1,17 @@
 <?php
 /*
 Plugin Name: SiteGuard WP Plugin
-Plugin URI: http://www.jp-secure.com/cont/products/siteguard_wp_plugin/index_en.html
-Description: Only installing SiteGuard WP Plugin on WordPress, its security can be improved. SiteGurad WP Plugin is the plugin specialized for the protection against the attack to the management page and login. It also have the function to create the exclude rule for WAF (SiteGuard Server Edition, to use it, WAF should be installed on the Web server.)
+Plugin URI: https://www.jp-secure.com/siteguard_wp_plugin_en/
+Description: Adds WordPress login and admin protections, including CAPTCHA, login lock, login alerts, renamed login URLs, and SiteGuard WAF tuning support.
 Author: JP-Secure
 Author URI: https://www.eg-secure.co.jp/
 Text Domain: siteguard
 Domain Path: /languages/
-Version: 1.7.12
+Version: 1.8.0
 */
 
 /*
-  Copyright 2014 EG Secure Solutions Inc (JP-Secure Inc)
+	Copyright 2014 EG Secure Solutions Inc (JP-Secure Inc)
 
 	This program is free software; you can redistribute it and/or modify
 	it under the terms of the GNU General Public License, version 2, as
@@ -36,6 +36,9 @@ define( 'SITEGUARD_VERSION', $data['version'] );
 
 define( 'SITEGUARD_PATH', plugin_dir_path( __FILE__ ) );
 define( 'SITEGUARD_URL_PATH', plugin_dir_url( __FILE__ ) );
+
+define( 'SITEGUARD_RENAME_MODE_HTACCESS', '0');
+define( 'SITEGUARD_RENAME_MODE_STUB', '1');
 
 define( 'SITEGUARD_LOGIN_NOSELECT', 4 );
 define( 'SITEGUARD_LOGIN_SUCCESS', 0 );
@@ -160,55 +163,40 @@ class SiteGuard extends SiteGuard_Base {
 	function htaccess_check() {
 		global $siteguard_config;
 
-		$can_use_htaccess = true;
-		if ( false === SiteGuard_Htaccess::test_htaccess() ) {
-			$can_use_htaccess = false;
-		}
-		if ( '1' === $siteguard_config->get( 'admin_filter_enable' ) ) {
-			if ( false === $can_use_htaccess || ! SiteGuard_Htaccess::is_exists_setting( SiteGuard_AdminFilter::get_mark() ) ) {
-				$siteguard_config->set( 'admin_filter_enable', '0' );
-				$siteguard_config->update();
-			}
-		}
-		if ( '1' === $siteguard_config->get( 'renamelogin_enable' ) ) {
-			if ( false === $can_use_htaccess || ! SiteGuard_Htaccess::is_exists_setting( SiteGuard_RenameLogin::get_mark() ) ) {
-				$siteguard_config->set( 'renamelogin_enable', '0' );
-				$siteguard_config->update();
-			}
-		}
-		if ( '1' === $siteguard_config->get( 'disable_xmlrpc_enable' ) ) {
-			if ( false === $can_use_htaccess || ! SiteGuard_Htaccess::is_exists_setting( SiteGuard_Disable_XMLRPC::get_mark() ) ) {
-				$siteguard_config->set( 'disable_xmlrpc_enable', '0' );
-				$siteguard_config->update();
-			}
-		}
+		// Only check whether the SiteGuard marker block still exists in .htaccess.
+		// The actual ".htaccess effectiveness" probe (test_htaccess) is performed
+		// only when the user toggles a feature on, to avoid loopback HTTP
+		// requests on every WordPress request.
 		if ( '1' === $siteguard_config->get( 'waf_exclude_rule_enable' ) ) {
-			if ( false === $can_use_htaccess || ! SiteGuard_Htaccess::is_exists_setting( SiteGuard_WAF_Exclude_Rule::get_mark() ) ) {
+			if ( ! SiteGuard_Htaccess::is_exists_setting( SiteGuard_WAF_Exclude_Rule::get_mark() ) ) {
 				$siteguard_config->set( 'waf_exclude_rule_enable', '0' );
 				$siteguard_config->update();
 			}
 		}
-		if ( '1' === $siteguard_config->get( 'captcha_enable' ) ) {
-			if ( false === $can_use_htaccess ) {
-				$siteguard_config->set( 'captcha_enable', '0' );
-				$siteguard_config->update();
+		if ( '1' === $siteguard_config->get( 'renamelogin_enable' ) ) {
+			if ( SITEGUARD_RENAME_MODE_HTACCESS === $siteguard_config->get( 'renamelogin_stub' ) ) {
+				if ( ! SiteGuard_Htaccess::is_exists_setting( SiteGuard_RenameLogin::get_mark() ) ) {
+					$siteguard_config->set( 'renamelogin_enable', '0' );
+					$siteguard_config->update();
+				}
 			}
 		}
 	}
 	function admin_notices() {
 		global $siteguard_rename_login;
 		echo '<div class="updated" style="background-color:#719f1d;"><p><span style="border: 4px solid #def1b8;padding: 4px 4px;color:#fff;font-weight:bold;background-color:#038bc3;">';
-		echo esc_html__( 'Login page URL was changed.', 'siteguard' ) . '</span>';
-		echo '<span style="color:#eee;">';
-		echo esc_html__( ' Please bookmark ', 'siteguard' ) . '<a style="color:#fff;text-decoration:underline;" href="' . esc_url( wp_login_url() ) . '">';
-		echo esc_html__( 'new login URL', 'siteguard' ) . '</a>';
-		echo esc_html__( '. Setting change is ', 'siteguard' ) . '<a style="color:#fff;text-decoration:underline;" href="' . esc_url( menu_page_url( 'siteguard_rename_login', false ) ) . '">';
-		echo esc_html__( 'here', 'siteguard' ) . '</a>';
-		echo '.</span></p></div>';
+		echo esc_html__( 'The login page URL has been changed.', 'siteguard' ) . '</span>';
+		printf(
+			'<span style="color:#eee;">'
+			. esc_html__( 'Please bookmark the %1$s. You can change this setting %2$s.', 'siteguard' )
+			. '</span></p></div>',
+			'<a style="color:#fff;text-decoration:underline;" href="' . esc_url( wp_login_url() ) . '">' . esc_html__( 'new login URL', 'siteguard' ) . '</a>',
+			'<a style="color:#fff;text-decoration:underline;" href="' . esc_url( menu_page_url( 'siteguard_rename_login', false ) ) . '">' . esc_html__( 'here', 'siteguard' ) . '</a>'
+		);
 		$siteguard_rename_login->send_notify();
 	}
 	function upgrade() {
-		global $siteguard_config, $siteguard_rename_login, $siteguard_admin_filter, $siteguard_loginalert, $siteguard_updates_notify, $siteguard_login_history, $siteguard_xmlrpc, $siteguard_author_query;
+		global $siteguard_config, $siteguard_rename_login, $siteguard_admin_filter, $siteguard_loginalert, $siteguard_updates_notify, $siteguard_login_history, $siteguard_xmlrpc, $siteguard_author_query, $siteguard_waf_exclude_rule;
 		$upgrade_ok  = true;
 		$old_version = $siteguard_config->get( 'version' );
 		if ( '' === $old_version ) {
@@ -276,6 +264,67 @@ class SiteGuard extends SiteGuard_Base {
 				if ( true !== $siteguard_admin_filter->feature_on( $this->get_ip() ) ) {
 					siteguard_error_log( 'Failed to update at admin_filter from ' . $old_version . ' to ' . SITEGUARD_VERSION . '.' );
 					$upgrade_ok = false;
+				}
+			}
+		}
+		if ( version_compare( $old_version, '1.8.0' ) < 0 ) {
+			SiteGuard_Htaccess::clear_settings( $siteguard_admin_filter->get_mark() );
+			SiteGuard_Htaccess::clear_settings( $siteguard_xmlrpc->get_mark() );
+			if ( '' === $siteguard_config->get( 'rescue_enable' ) ) {
+				$siteguard_config->set( 'rescue_enable', '1' );
+				$siteguard_config->update();
+			}
+			// Remove legacy error.log left by previous versions; logging now
+			// uses PHP error_log() so the file would only sit web-exposed on Nginx.
+			$legacy_log = SITEGUARD_PATH . 'error.log';
+			if ( file_exists( $legacy_log ) ) {
+				@unlink( $legacy_log );
+			}
+			// Remove legacy plugin-directory tmp/ used for .htaccess rebuilds.
+			// `clear_settings()` / `update_settings()` now short-circuit on
+			// Nginx (no .htaccess in use), so this directory will not be
+			// recreated there. On Apache it will be regenerated as needed
+			// by make_tmp_dir(). Existing orphan tempnam files would be
+			// web-exposed on Nginx without the .htaccess inside the dir.
+			$legacy_tmp = SITEGUARD_PATH . 'tmp';
+			if ( is_dir( $legacy_tmp ) ) {
+				$entries = @scandir( $legacy_tmp );
+				if ( is_array( $entries ) ) {
+					foreach ( $entries as $entry ) {
+						if ( '.' === $entry || '..' === $entry ) {
+							continue;
+						}
+						$path = $legacy_tmp . DIRECTORY_SEPARATOR . $entry;
+						if ( is_file( $path ) ) {
+							if ( ! @unlink( $path ) ) {
+								@chmod( $path, 0644 );
+								@unlink( $path );
+							}
+						}
+					}
+				}
+				@rmdir( $legacy_tmp );
+			}
+			// Remove legacy CAPTCHA answer files (*.txt). Pre-1.8.0 stored
+			// them at WP_CONTENT_DIR/siteguard/ with an .htaccess block on
+			// .txt; on Nginx that block does not apply and the salt+hash
+			// would be readable. New answer files use .php with a stub
+			// prefix and live in the same directory.
+			$captcha_dir = path_join( WP_CONTENT_DIR, 'siteguard' );
+			if ( is_dir( $captcha_dir ) ) {
+				$entries = @scandir( $captcha_dir );
+				if ( is_array( $entries ) ) {
+					foreach ( $entries as $entry ) {
+						if ( preg_match( '/\.txt$/', $entry ) ) {
+							$path = $captcha_dir . DIRECTORY_SEPARATOR . $entry;
+							if ( is_file( $path ) ) {
+								if ( ! @unlink( $path ) ) {
+									@chmod( $path, 0644 );
+									@unlink( $path );
+								}
+							}
+						}
+					}
 				}
 			}
 		}

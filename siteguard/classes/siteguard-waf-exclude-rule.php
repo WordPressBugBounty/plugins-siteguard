@@ -117,7 +117,7 @@ class SiteGuard_WAF_Exclude_Rule extends SiteGuard_Base {
 				$offset = $idx;
 				return $rule;
 			}
-			$idx ++;
+			++$idx;
 		}
 		$offset = -1;
 		return false;
@@ -185,7 +185,7 @@ class SiteGuard_WAF_Exclude_Rule extends SiteGuard_Base {
 		$result = str_replace( "\n", ',', $result );
 		return $result;
 	}
-	// for SiteGuard Lite Ver1.x
+	// for SiteGuard Ver1.x
 	function output_exclude_sig_1( $sig_str ) {
 		$result = '';
 		$csv    = $this->cvt_csrf2comma( $sig_str );
@@ -198,15 +198,15 @@ class SiteGuard_WAF_Exclude_Rule extends SiteGuard_Base {
 		}
 		return $result;
 	}
-	// for SiteGuard Lite Ver2.x
+	// for SiteGuard Ver2.x
 	function output_exclude_sig_2( $sig_str ) {
 		return '        SiteGuard_User_ExcludeSig ' . $this->cvt_csrf2comma( $sig_str ) . "\n";
 	}
 	function update_settings() {
-		global $siteguard_config;
+		global $siteguard_config, $siteguard_server_type;
 		$htaccess_str = '';
 		$rules        = $siteguard_config->get( SITEGUARD_WAF_EXCLUDE_RULE );
-		if ( '' === $rules ) {
+		if ( '' === $rules || ! is_array( $rules ) ) {
 			return;
 		}
 

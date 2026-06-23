@@ -33,7 +33,7 @@ class SiteGuard_Menu_Updates_Notify extends SiteGuard_Base {
 				$error = true;
 			}
 			if ( ( false === $error )
-			  && ( ( false === $this->is_switch_value( $_POST[ self::OPT_NAME_ENABLE ] ) )
+				&& ( ( false === $this->is_switch_value( $_POST[ self::OPT_NAME_ENABLE ] ) )
 				|| ( false === $this->is_switch_value( $_POST[ self::OPT_NAME_WPCORE ] ) )
 				|| ( false === $this->is_notify_value( $_POST[ self::OPT_NAME_PLUGINS ] ) )
 				|| ( false === $this->is_notify_value( $_POST[ self::OPT_NAME_THEMES ] ) ) ) ) {
@@ -74,15 +74,15 @@ class SiteGuard_Menu_Updates_Notify extends SiteGuard_Base {
 
 		echo '<div class="wrap">';
 		echo '<img src="' . SITEGUARD_URL_PATH . 'images/sg_wp_plugin_logo_40.png" alt="SiteGuard Logo" />';
-		echo '<h2>' . esc_html__( 'Updates Notify', 'siteguard' ) . '</h2>';
+		echo '<h2>' . esc_html__( 'Update Notifications', 'siteguard' ) . '</h2>';
+		$documentation_link = '<a href="' . esc_url( __( 'https://www.jp-secure.com/siteguard_wp_plugin_en/howto/updates_notify/', 'siteguard' ) ) . '" target="_blank">' . esc_html__( 'online documentation', 'siteguard' ) . '</a>';
 		echo '<div class="siteguard-description">'
-		. esc_html__( 'You can find docs about this function on ', 'siteguard' )
-		. '<a href="' . esc_url( __( 'https://www.jp-secure.com/siteguard_wp_plugin_en/howto/updates_notify/', 'siteguard' ) )
-		. '" target="_blank">'
-		. esc_html__( 'here', 'siteguard' )
-		. '</a>'
-		. esc_html__( '.', 'siteguard' )
-		. '</div>';
+			. sprintf(
+				/* translators: %1$s: Link to the online documentation. */
+				esc_html__( 'See the %1$s.', 'siteguard' ),
+				$documentation_link
+			)
+			. '</div>';
 		?>
 		<form name="form1" method="post" action="">
 		<table class="form-table">
@@ -116,7 +116,7 @@ class SiteGuard_Menu_Updates_Notify extends SiteGuard_Base {
 				<label for="<?php echo self::OPT_NAME_WPCORE . '_1'; ?>"><?php esc_html_e( 'Enable', 'siteguard' ); ?></label>
 			</td>
 		</tr><tr>
-		<th scope="row"><?php esc_html_e( 'Plugins updates', 'siteguard' ); ?></th>
+		<th scope="row"><?php esc_html_e( 'Plugin updates', 'siteguard' ); ?></th>
 			<td>
 				<input type="radio" name="<?php echo self::OPT_NAME_PLUGINS; ?>" id="<?php echo self::OPT_NAME_PLUGINS . '_0'; ?>" value="0" <?php checked( $opt_val_plugins, '0' ); ?> >
 				<label for="<?php echo self::OPT_NAME_PLUGINS . '_0'; ?>"><?php esc_html_e( 'Disable', 'siteguard' ); ?></label>
@@ -128,7 +128,7 @@ class SiteGuard_Menu_Updates_Notify extends SiteGuard_Base {
 				<label for="<?php echo self::OPT_NAME_PLUGINS . '_2'; ?>"><?php esc_html_e( 'Active plugins only', 'siteguard' ); ?></label>
 			</td>
 		</tr><tr>
-		<th scope="row"><?php esc_html_e( 'Themes updates', 'siteguard' ); ?></th>
+		<th scope="row"><?php esc_html_e( 'Theme updates', 'siteguard' ); ?></th>
 			<td>
 				<input type="radio" name="<?php echo self::OPT_NAME_THEMES; ?>" id="<?php echo self::OPT_NAME_THEMES . '_0'; ?>" value="0" <?php checked( $opt_val_themes, '0' ); ?> >
 				<label for="<?php echo self::OPT_NAME_THEMES . '_0'; ?>"><?php esc_html_e( 'Disable', 'siteguard' ); ?></label>
@@ -142,7 +142,7 @@ class SiteGuard_Menu_Updates_Notify extends SiteGuard_Base {
 		</tr>
 		</table>
 		<div class="siteguard-description">
-		<?php esc_html_e( 'Basic of security is that always you use the latest version. If WordPress core, plugins, and themes updates are needed , sends email to notify administrators. Check for updates will be run every 24 hours.', 'siteguard' ); ?>
+			<?php esc_html_e( 'Keeping WordPress core, plugins, and themes up to date is a basic security practice. This feature checks for updates every 24 hours and emails administrators when updates are available.', 'siteguard' ); ?>
 		</div>
 		<hr />
 		<input type="hidden" name="update" value="Y">

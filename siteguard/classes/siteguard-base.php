@@ -1,12 +1,10 @@
 <?php
 
 function siteguard_error_log( $message ) {
-	$logfile = SITEGUARD_PATH . 'error.log';
-	$f       = @fopen( $logfile, 'a+' );
-	if ( false != $f ) {
-		fwrite( $f, date_i18n( 'Y/m/d H:i:s:' ) . $message . "\n" );
-		fclose( $f );
-	}
+	// Use PHP's error_log() so logs go to the server-configured destination
+	// (typically outside the web root) instead of a plugin-directory file
+	// that would be exposed on Nginx (no .htaccess support).
+	error_log( '[SiteGuard] ' . $message );
 }
 
 function siteguard_error_dump( $title, $obj ) {
@@ -31,7 +29,7 @@ function siteguard_check_multisite() {
 	if ( ! is_multisite() ) {
 		return true;
 	}
-	$message = esc_html__( 'It does not support the multisite function of WordPress.', 'siteguard' );
+	$message = esc_html__( 'This plugin does not support WordPress multisite.', 'siteguard' );
 	$error   = new WP_Error( 'siteguard', $message );
 	return $error;
 }
@@ -46,17 +44,17 @@ class SiteGuard_Base {
 		return false;
 	}
 	function cvt_camma2ret( $value ) {
-			$result = str_replace( ' ', '', $value );
-			return str_replace( ',', "\r\n", $result );
+		$result = str_replace( ' ', '', $value );
+		return str_replace( ',', "\r\n", $result );
 	}
 	function cvt_ret2camma( $exclude ) {
-			$result = str_replace( ' ', '', $exclude );
-			$result = str_replace( ',', '', $result );
-			$result = preg_replace( '/(\r\n){2,}/', "\r\n", $result );
-			$result = preg_replace( '/\r\n$/', '', $result );
-			$result = str_replace( "\r\n", ',', $result );
-			$result = str_replace( "\r", ',', $result );
-			return str_replace( "\n", ',', $result );
+		$result = str_replace( ' ', '', $exclude );
+		$result = str_replace( ',', '', $result );
+		$result = preg_replace( '/(\r\n){2,}/', "\r\n", $result );
+		$result = preg_replace( '/\r\n$/', '', $result );
+		$result = str_replace( "\r\n", ',', $result );
+		$result = str_replace( "\r", ',', $result );
+		return str_replace( "\n", ',', $result );
 	}
 	function check_module( $name, $default = false ) {
 		return true;
@@ -106,23 +104,7 @@ class SiteGuard_Base {
 	function get_server_ip() {
 		if ( isset( $_SERVER['SERVER_ADDR'] ) ) {
 			$ip = sanitize_text_field( $_SERVER['SERVER_ADDR'] );
-			if ( false === $this->is_private_ip( $ip ) ) {
-				if ( preg_match( '/[0-9.:]+/', $ip ) ) {
-					return $ip;
-				}
-			}
-		}
-
-		$url     = 'http://inet-ip.info/ip';
-		$options = array(
-			'http' => array(
-				'method'  => 'GET',
-				'timeout' => 2,
-			),
-		);
-		$ip      = @file_get_contents( $url, false, stream_context_create( $options ) );
-		if ( false !== $ip ) {
-			if ( preg_match( '/[0-9.:]+/', $ip ) ) {
+			if ( preg_match( '/^[0-9.:]+$/', $ip ) ) {
 				return $ip;
 			}
 		}
@@ -131,11 +113,9 @@ class SiteGuard_Base {
 		if ( false !== $host && null !== $host ) {
 			putenv( 'RES_OPTIONS=retrans:1 retry:1 timeout:2 attempts:1' );
 			$ip = @gethostbyname( $host );
-			if ( $ip !== $host ) {
-				if ( '127.0.0.1' !== $ip && '::1' !== $ip ) {
-					if ( preg_match( '/[0-9.:]+/', $ip ) ) {
-						return $ip;
-					}
+			if ( $ip !== $host && '127.0.0.1' !== $ip && '::1' !== $ip ) {
+				if ( preg_match( '/^[0-9.:]+$/', $ip ) ) {
+					return $ip;
 				}
 			}
 		}

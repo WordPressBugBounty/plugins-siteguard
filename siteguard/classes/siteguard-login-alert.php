@@ -3,7 +3,7 @@
 class SiteGuard_LoginAlert extends SiteGuard_Base {
 	function __construct() {
 		global $siteguard_config;
-		if ( '1' == $siteguard_config->get( 'loginalert_enable' ) ) {
+		if ( '1' === $siteguard_config->get( 'loginalert_enable' ) ) {
 			add_action( 'wp_login', array( $this, 'handler_wp_login' ), 10, 2 );
 		}
 	}

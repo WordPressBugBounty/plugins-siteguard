@@ -43,12 +43,12 @@ class SiteGuard_Menu_CAPTCHA extends SiteGuard_Base {
 					$siteguard_config->update();
 				}
 			}
-			if ( ( false === $error )
-			  && ( ( false === $this->is_switch_value( $_POST[ self::OPT_NAME_ENABLE ] ) )
-				|| ( false === $this->is_captcha_switch_value( $_POST[ self::OPT_NAME_LOGIN ] ) )
-				|| ( false === $this->is_captcha_switch_value( $_POST[ self::OPT_NAME_COMMENT ] ) )
-				|| ( false === $this->is_captcha_switch_value( $_POST[ self::OPT_NAME_LOSTPASSWORD ] ) )
-				|| ( false === $this->is_captcha_switch_value( $_POST[ self::OPT_NAME_REGISTUSER ] ) ) ) ) {
+			if ( ( false === $error ) &&
+				( ( false === $this->is_switch_value( $_POST[ self::OPT_NAME_ENABLE ] ) ) ||
+				( false === $this->is_captcha_switch_value( $_POST[ self::OPT_NAME_LOGIN ] ) ) ||
+				( false === $this->is_captcha_switch_value( $_POST[ self::OPT_NAME_COMMENT ] ) ) ||
+				( false === $this->is_captcha_switch_value( $_POST[ self::OPT_NAME_LOSTPASSWORD ] ) ) ||
+				( false === $this->is_captcha_switch_value( $_POST[ self::OPT_NAME_REGISTUSER ] ) ) ) ) {
 				echo '<div class="error settings-error"><p><strong>';
 				esc_html_e( 'ERROR: Invalid input value.', 'siteguard' );
 				echo '</strong></p></div>';
@@ -75,14 +75,14 @@ class SiteGuard_Menu_CAPTCHA extends SiteGuard_Base {
 		echo '<div class="wrap">';
 		echo '<img src="' . SITEGUARD_URL_PATH . 'images/sg_wp_plugin_logo_40.png" alt="SiteGuard Logo" />';
 		echo '<h2>' . esc_html__( 'CAPTCHA', 'siteguard' ) . '</h2>';
+		$documentation_link = '<a href="' . esc_url( __( 'https://www.jp-secure.com/siteguard_wp_plugin_en/howto/captcha/', 'siteguard' ) ) . '" target="_blank">' . esc_html__( 'online documentation', 'siteguard' ) . '</a>';
 		echo '<div class="siteguard-description">'
-		. esc_html__( 'You can find docs about this function on ', 'siteguard' )
-		. '<a href="' . esc_url( __( 'https://www.jp-secure.com/siteguard_wp_plugin_en/howto/captcha/', 'siteguard' ) )
-		. '" target="_blank">'
-		. esc_html__( 'here', 'siteguard' )
-		. '</a>'
-		. esc_html__( '.', 'siteguard' )
-		. '</div>';
+			. sprintf(
+				/* translators: %1$s: Link to the online documentation. */
+				esc_html__( 'See the %1$s.', 'siteguard' ),
+				$documentation_link
+			)
+			. '</div>';
 		?>
 		<form name="form1" method="post" action="">
 		<table class="form-table">
@@ -143,7 +143,7 @@ class SiteGuard_Menu_CAPTCHA extends SiteGuard_Base {
 				<label for="<?php echo self::OPT_NAME_LOSTPASSWORD . '_off'; ?>"><?php esc_html_e( 'Disable', 'siteguard' ); ?></label>
 			</td>
 		</tr><tr>
-		<th scope="row"><?php esc_html_e( 'Registration user page', 'siteguard' ); ?></th>
+			<th scope="row"><?php esc_html_e( 'Registration page', 'siteguard' ); ?></th>
 			<td>
 				<input type="radio" name="<?php echo self::OPT_NAME_REGISTUSER; ?>" id="<?php echo self::OPT_NAME_REGISTUSER . '_jp'; ?>" value="1" <?php checked( $opt_val_registuser, '1' ); ?> >
 				<label for="<?php echo self::OPT_NAME_REGISTUSER . '_jp'; ?>"><?php esc_html_e( 'Hiragana (Japanese)', 'siteguard' ); ?></label>
@@ -157,7 +157,7 @@ class SiteGuard_Menu_CAPTCHA extends SiteGuard_Base {
 		</tr>
 		</table>
 		<div class="siteguard-description">
-		<?php esc_html_e( 'It is the function to decrease the vulnerability against an illegal login attempt attack such as a brute force attack or a password list attack, or to receive less comment spam. For the character of CAPTCHA, hiragana and alphanumeric characters can be selected.', 'siteguard' ); ?>
+			<?php esc_html_e( 'Adds CAPTCHA to login, comment, password reset, and user registration forms. CAPTCHA can use either hiragana or alphanumeric characters.', 'siteguard' ); ?>
 		</div>
 		<input type="hidden" name="update" value="Y">
 		<hr />

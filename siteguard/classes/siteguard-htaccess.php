@@ -13,13 +13,87 @@ class SiteGuard_Htaccess extends SiteGuard_Base {
 	static function get_tmp_dir() {
 		return SITEGUARD_PATH . 'tmp/';
 	}
+	static function is_writable_htaccess() {
+		if ( isset( $_SERVER['SERVER_SOFTWARE'] ) && false !== stripos( $_SERVER['SERVER_SOFTWARE'], 'nginx' ) ) {
+			return false;
+		}
+		if ( file_exists( self::get_htaccess_file() ) ) {
+			return is_writable( self::get_htaccess_file() );
+		}
+		return is_writable( ABSPATH );
+	}
+
 	static function test_htaccess() {
-		return true;
-		// $result = wp_remote_get( SITEGUARD_URL_PATH . 'test/siteguard-test.php' );
-		// if ( ! is_wp_error( $result ) && 200 === $result['response']['code'] ) {
-		// return true;
-		// }
-		// return false;
+		if ( ! self::is_writable_htaccess() ) {
+			return false;
+		}
+
+		// Sweep orphaned test directories left behind by previous runs whose
+		// wp_remote_get timed out before cleanup could execute.
+		self::cleanup_orphaned_test_dirs();
+
+
+		$test_dir_name    = 'siteguard-test-' . uniqid();
+		$test_dir_path    = ABSPATH . $test_dir_name;
+		$htaccess_path    = $test_dir_path . '/.htaccess';
+		$php_file_path    = $test_dir_path . '/test.php';
+		$test_url         = home_url( '/' . $test_dir_name . '/test.html' );
+		$php_content      = '<?php echo "SUCCESS";';
+		$htaccess_content = "RewriteEngine On\nRewriteRule ^test\\.html$ test.php [L]";
+
+		$cleanup = function () use ( $htaccess_path, $php_file_path, $test_dir_path ) {
+			if ( file_exists( $htaccess_path ) ) {
+				@unlink( $htaccess_path );
+			}
+			if ( file_exists( $php_file_path ) ) {
+				@unlink( $php_file_path );
+			}
+			if ( is_dir( $test_dir_path ) ) {
+				@rmdir( $test_dir_path );
+			}
+		};
+
+		if ( ! @mkdir( $test_dir_path, 0755 ) ) {
+			return false;
+		}
+
+		if ( false === @file_put_contents( $php_file_path, $php_content ) || false === @file_put_contents( $htaccess_path, $htaccess_content ) ) {
+			$cleanup();
+			return false;
+		}
+
+		$response = wp_remote_get(
+			$test_url,
+			array(
+				'timeout'   => 10,
+				'sslverify' => apply_filters( 'https_local_ssl_verify', false ),
+			)
+		);
+
+		$cleanup();
+
+		return ! is_wp_error( $response ) && 200 === wp_remote_retrieve_response_code( $response ) && 'SUCCESS' === wp_remote_retrieve_body( $response );
+	}
+	private static function cleanup_orphaned_test_dirs() {
+		$orphans = glob( ABSPATH . 'siteguard-test-*', GLOB_ONLYDIR );
+		if ( empty( $orphans ) ) {
+			return;
+		}
+		foreach ( $orphans as $dir ) {
+			$entries = @scandir( $dir );
+			if ( is_array( $entries ) ) {
+				foreach ( $entries as $entry ) {
+					if ( '.' === $entry || '..' === $entry ) {
+						continue;
+					}
+					$path = $dir . DIRECTORY_SEPARATOR . $entry;
+					if ( is_file( $path ) ) {
+						@unlink( $path );
+					}
+				}
+			}
+			@rmdir( $dir );
+		}
 	}
 	static function get_htaccess_new_file() {
 		return tempnam( self::get_tmp_dir(), 'htaccess_' );
@@ -29,6 +103,13 @@ class SiteGuard_Htaccess extends SiteGuard_Base {
 		if ( ! wp_mkdir_p( $dir ) ) {
 			siteguard_error_log( "make tempdir failed: $dir" );
 			return false;
+		}
+		// Defense-in-depth against directory listing if .htaccess is ignored
+		// (e.g. Apache configured with AllowOverride None). Do not chmod the
+		// file — making it read-only blocks WordPress plugin overwrite/upgrade.
+		$index_file = $dir . 'index.html';
+		if ( ! file_exists( $index_file ) ) {
+			@file_put_contents( $index_file, '' );
 		}
 		$htaccess_file = $dir . '.htaccess';
 
@@ -75,7 +156,7 @@ class SiteGuard_Htaccess extends SiteGuard_Base {
 		$end_line   = 0;
 		while ( ! feof( $fr ) ) {
 			$line = fgets( $fr, 4096 );
-			$line_num++;
+			++$line_num;
 			if ( false !== strpos( $line, $mark_start ) ) {
 				$start_line = $line_num;
 			}
@@ -127,6 +208,13 @@ class SiteGuard_Htaccess extends SiteGuard_Base {
 		return $perm;
 	}
 	static function clear_settings( $mark ) {
+		// On Nginx (or any environment where .htaccess is not in use), the
+		// rebuild is a no-op. Skipping here avoids creating the in-plugin
+		// tmp/ directory and any tempnam fragments that would not be
+		// protected from web access.
+		if ( ! self::is_writable_htaccess() ) {
+			return true;
+		}
 		if ( ! self::make_tmp_dir() ) {
 			return false;
 		}
@@ -139,7 +227,11 @@ class SiteGuard_Htaccess extends SiteGuard_Base {
 		}
 		$flag_settings = false;
 		$current_file  = self::get_htaccess_file();
-		$perm          = self::get_apply_permission( $current_file );
+		if ( ! file_exists( $current_file ) ) {
+			return false;
+		}
+		$perm = self::get_apply_permission( $current_file );
+
 		if ( ! self::check_permission( false ) ) {
 			return false;
 		}
@@ -152,6 +244,8 @@ class SiteGuard_Htaccess extends SiteGuard_Base {
 		$fw       = @fopen( $new_file, 'w' );
 		if ( null === $fw ) {
 			siteguard_error_log( "fopen failed: $new_file" );
+			@unlink( $new_file );
+			fclose( $fr );
 			return false;
 		}
 		while ( ! feof( $fr ) ) {
@@ -171,11 +265,16 @@ class SiteGuard_Htaccess extends SiteGuard_Base {
 		@chmod( $new_file, $perm );
 		if ( ! rename( $new_file, $current_file ) ) {
 			siteguard_error_log( "rename failed: $new_file $current_file" );
+			@unlink( $new_file );
 			return false;
 		}
 		return true;
 	}
 	function update_settings( $mark, $data ) {
+		// See note in clear_settings(): skip on Nginx where .htaccess is unused.
+		if ( ! self::is_writable_htaccess() ) {
+			return true;
+		}
 		if ( ! self::make_tmp_dir() ) {
 			return false;
 		}
@@ -201,11 +300,15 @@ class SiteGuard_Htaccess extends SiteGuard_Base {
 		$new_file = self::get_htaccess_new_file();
 		if ( ! is_writable( $new_file ) ) {
 			siteguard_error_log( "file not writable: $new_file" );
+			@unlink( $new_file );
+			fclose( $fr );
 			return false;
 		}
 		$fw = @fopen( $new_file, 'w' );
 		if ( null === $fw ) {
 			siteguard_error_log( "fopen failed: $new_file" );
+			@unlink( $new_file );
+			fclose( $fr );
 			return false;
 		}
 		while ( ! feof( $fr ) ) {
@@ -225,12 +328,12 @@ class SiteGuard_Htaccess extends SiteGuard_Base {
 				continue;
 			}
 
-			if ( false !== strpos( $line, $mark_start ) ) {
+			if ( false === $flag_write && false !== strpos( $line, $mark_start ) ) {
 				fwrite( $fw, $line, strlen( $line ) );
 				fwrite( $fw, $data, strlen( $data ) );
 				$flag_write   = true;
 				$flag_through = false;
-				continue;
+				// continue;
 			}
 			if ( false === $flag_write && false !== strpos( $line, self::HTACCESS_MARK_END ) ) {
 				fwrite( $fw, $mark_start . "\n", strlen( $mark_start ) + 1 );
@@ -270,6 +373,7 @@ class SiteGuard_Htaccess extends SiteGuard_Base {
 		@chmod( $new_file, $perm );
 		if ( ! rename( $new_file, $current_file ) ) {
 			siteguard_error_log( "rename failed: $new_file $current_file" );
+			@unlink( $new_file );
 			return false;
 		}
 		return true;

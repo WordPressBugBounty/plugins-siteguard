@@ -5,15 +5,22 @@ if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 }
 
 function remove_directory( $dir ) {
-	$files = array_diff( scandir( $dir ), array( '.' ,'..' ) );
+	if ( ! is_dir( $dir ) ) {
+		return true;
+	}
+	$entries = @scandir( $dir );
+	if ( ! is_array( $entries ) ) {
+		return false;
+	}
+	$files = array_diff( $entries, array( '.', '..' ) );
 	foreach ( $files as $file ) {
 		if ( is_dir( "$dir/$file" ) ) {
 			remove_directory( "$dir/$file" );
 		} else {
-			unlink( "$dir/$file" );
+			@unlink( "$dir/$file" );
 		}
 	}
-	return rmdir( $dir );
+	return @rmdir( $dir );
 }
 
 function delete_siteguard_plugin() {

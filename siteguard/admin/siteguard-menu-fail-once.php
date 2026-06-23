@@ -45,15 +45,15 @@ class SiteGuard_Menu_Fail_Once extends SiteGuard_Base {
 
 		echo '<div class="wrap">';
 		echo '<img src="' . SITEGUARD_URL_PATH . 'images/sg_wp_plugin_logo_40.png" alt="SiteGuard Logo" />';
-		echo '<h2>' . esc_html__( 'Fail once', 'siteguard' ) . '</h2>';
+		echo '<h2>' . esc_html__( 'Fail Once', 'siteguard' ) . '</h2>';
+		$documentation_link = '<a href="' . esc_url( __( 'https://www.jp-secure.com/siteguard_wp_plugin_en/howto/fail_once/', 'siteguard' ) ) . '" target="_blank">' . esc_html__( 'online documentation', 'siteguard' ) . '</a>';
 		echo '<div class="siteguard-description">'
-		. esc_html__( 'You can find docs about this function on ', 'siteguard' )
-		. '<a href="' . esc_url( __( 'https://www.jp-secure.com/siteguard_wp_plugin_en/howto/fail_once/', 'siteguard' ) )
-		. '" target="_blank">'
-		. esc_html__( 'here', 'siteguard' )
-		. '</a>'
-		. esc_html__( '.', 'siteguard' )
-		. '</div>';
+			. sprintf(
+				/* translators: %1$s: Link to the online documentation. */
+				esc_html__( 'See the %1$s.', 'siteguard' ),
+				$documentation_link
+			)
+			. '</div>';
 		?>
 		<form name="form1" method="post" action="">
 		<table class="form-table">
@@ -88,7 +88,7 @@ class SiteGuard_Menu_Fail_Once extends SiteGuard_Base {
 		</table>
 		<input type="hidden" name="update" value="Y">
 		<div class="siteguard-description">
-		<?php esc_html_e( 'It is the function to decrease the vulnerability against a password list attack. Even is the login input is correct, the first login must fail. After 5 seconds and later within 60 seconds, another correct login input make login succeed. At the first login failure, the following error message is displayed.', 'siteguard' ); ?>
+			<?php esc_html_e( 'Reduces the risk of password list attacks by forcing the first valid login attempt to fail. After the first failure, the user must try again between 5 and 60 seconds later with the correct credentials.', 'siteguard' ); ?>
 		</div>
 		<hr />
 

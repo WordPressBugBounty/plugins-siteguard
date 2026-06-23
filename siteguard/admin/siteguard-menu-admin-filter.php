@@ -7,6 +7,7 @@ class SiteGuard_Menu_Admin_Filter extends SiteGuard_Base {
 	function __construct() {
 		$this->render_page();
 	}
+
 	function render_page() {
 		global $siteguard_admin_filter, $siteguard_config;
 
@@ -21,25 +22,9 @@ class SiteGuard_Menu_Admin_Filter extends SiteGuard_Base {
 				echo '</strong></p></div>';
 				$error = true;
 			}
-			if ( false === $error && '1' === $_POST[ self::OPT_NAME_FEATURE ] && false === $this->check_module( 'rewrite' ) ) {
-				echo '<div class="error settings-error"><p><strong>';
-				esc_html_e( 'To use this function, “mod_rewrite” should be loaded on Apache.', 'siteguard' );
-				echo '</strong></p></div>';
-				$error = true;
-				$siteguard_config->set( self::OPT_NAME_FEATURE, '0' );
-				$siteguard_config->update();
-				$siteguard_admin_filter->feature_off();
-				$opt_val_feature = '0';
-			}
 			if ( false === $error && false === $this->is_switch_value( $_POST[ self::OPT_NAME_FEATURE ] ) ) {
 				echo '<div class="error settings-error"><p><strong>';
 				esc_html_e( 'ERROR: Invalid input value.', 'siteguard' );
-				echo '</strong></p></div>';
-				$error = true;
-			}
-			if ( false === $error && '1' === $_POST[ self::OPT_NAME_FEATURE ] && false === SiteGuard_Htaccess::test_htaccess() ) {
-				echo '<div class="error settings-error"><p><strong>';
-				esc_html_e( 'mod_rewrite of .htaccess can not be used', 'siteguard' );
 				echo '</strong></p></div>';
 				$error = true;
 			}
@@ -69,7 +54,7 @@ class SiteGuard_Menu_Admin_Filter extends SiteGuard_Base {
 					$siteguard_config->set( self::OPT_NAME_EXCLUDE, $this->cvt_ret2camma( $opt_val_exclude ) );
 					$siteguard_config->update();
 					echo '<div class="error settings-error"><p><strong>';
-					esc_html_e( 'ERROR: Failed to .htaccess update.', 'siteguard' );
+					esc_html_e( 'ERROR: Failed to update settings. Please try again.', 'siteguard' );
 					echo '</strong></p></div>';
 				}
 			}
@@ -78,14 +63,14 @@ class SiteGuard_Menu_Admin_Filter extends SiteGuard_Base {
 		echo '<div class="wrap">';
 		echo '<img src="' . SITEGUARD_URL_PATH . 'images/sg_wp_plugin_logo_40.png" alt="SiteGuard Logo" />';
 		echo '<h2>' . esc_html__( 'Admin Page IP Filter', 'siteguard' ) . '</h2>';
+		$documentation_link = '<a href="' . esc_url( __( 'https://www.jp-secure.com/siteguard_wp_plugin_en/howto/admin_filter/', 'siteguard' ) ) . '" target="_blank">' . esc_html__( 'online documentation', 'siteguard' ) . '</a>';
 		echo '<div class="siteguard-description">'
-		. esc_html__( 'You can find docs about this function on ', 'siteguard' )
-		. '<a href="' . esc_url( __( 'https://www.jp-secure.com/siteguard_wp_plugin_en/howto/admin_filter/', 'siteguard' ) )
-		. '" target="_blank">'
-		. esc_html__( 'here', 'siteguard' )
-		. '</a>'
-		. esc_html__( '.', 'siteguard' )
-		. '</div>';
+			. sprintf(
+				/* translators: %1$s: Link to the online documentation. */
+				esc_html__( 'See the %1$s.', 'siteguard' ),
+				$documentation_link
+			)
+			. '</div>';
 		?>
 		<form name="form1" method="post" action="">
 		<table class="form-table">
@@ -108,20 +93,22 @@ class SiteGuard_Menu_Admin_Filter extends SiteGuard_Base {
 				echo esc_html( $error->get_error_message() );
 				echo '</p>';
 			}
-			echo '<p class="description">';
-			esc_html_e( 'To use this function, “mod_rewrite” should be loaded on Apache.', 'siteguard' );
-			echo '</p>';
 			?>
 		</th>
 		</tr><tr>
 		<th scope="row"><label for="<?php echo self::OPT_NAME_EXCLUDE; ?>"><?php echo esc_html_e( 'Exclude Path', 'siteguard' ); ?></label></th>
 		<td><textarea name="<?php echo self::OPT_NAME_EXCLUDE; ?>" id="<?php echo self::OPT_NAME_EXCLUDE; ?>" cols=40 rows=5 ><?php echo esc_textarea( $opt_val_exclude ); ?></textarea>
-		<p class="description"><?php esc_html_e( 'The path of /wp-admin/ henceforth is specified. To specify more than one, separate them with new line. ', 'siteguard' ); ?></p></td>
+		<p class="description"><?php esc_html_e( 'Enter the path after /wp-admin/ to exclude. One path per line.', 'siteguard' ); ?></p></td>
 		</tr>
 		</table>
 		<input type="hidden" name="update" value="Y">
 		<div class="siteguard-description">
-		<?php esc_html_e( 'It is the function for the protection against the attack to the management page (under /wp-admin/.) To the access from the connection source IP address which does not login to the management page, 404 (Not Found) is returned. At the login, the connection source IP address is recorded and the access to that page is allowed. The connection source IP address which does not login for more than 24 hours is sequentially deleted. The URL (under /wp-admin/) where this function is excluded can be specified.', 'siteguard' ); ?>
+		<?php
+		esc_html_e(
+			'Blocks unauthorized access to the admin area. Only computers that have previously logged in are allowed through. Access is automatically removed after 24 hours. Note: This protection covers WordPress pages only, not static files such as images or stylesheets. You can specify paths to exclude from this protection.',
+			'siteguard'
+		);
+		?>
 		</div>
 		<hr />
 		<?php

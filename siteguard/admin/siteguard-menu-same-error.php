@@ -47,14 +47,14 @@ class SiteGuard_Menu_Same_Error extends SiteGuard_Base {
 		echo '<div class="wrap">';
 		echo '<img src="' . SITEGUARD_URL_PATH . 'images/sg_wp_plugin_logo_40.png" alt="SiteGuard Logo" />';
 		echo '<h2>' . esc_html__( 'Same Login Error Message', 'siteguard' ) . '</h2>';
+		$documentation_link = '<a href="' . esc_url( __( 'https://www.jp-secure.com/siteguard_wp_plugin_en/howto/same_error/', 'siteguard' ) ) . '" target="_blank">' . esc_html__( 'online documentation', 'siteguard' ) . '</a>';
 		echo '<div class="siteguard-description">'
-		. esc_html__( 'You can find docs about this function on ', 'siteguard' )
-		. '<a href="' . esc_url( __( 'https://www.jp-secure.com/siteguard_wp_plugin_en/howto/same_error/', 'siteguard' ) )
-		. '" target="_blank">'
-		. esc_html__( 'here', 'siteguard' )
-		. '</a>'
-		. esc_html__( '.', 'siteguard' )
-		. '</div>';
+			. sprintf(
+				/* translators: %1$s: Link to the online documentation. */
+				esc_html__( 'See the %1$s.', 'siteguard' ),
+				$documentation_link
+			)
+			. '</div>';
 		?>
 		<form name="form1" method="post" action="">
 		<table class="form-table">
@@ -82,7 +82,7 @@ class SiteGuard_Menu_Same_Error extends SiteGuard_Base {
 		</table>
 		<input type="hidden" name="update" value="Y">
 		<div class="siteguard-description">
-		<?php esc_html_e( 'It is the function to decrease the vulnerability against the attack to examine if a user name exists. All error messages about the login should be equalized. The single error message is displayed even if anyone of a username, password, or CAPTCHA is wrong.', 'siteguard' ); ?>
+			<?php esc_html_e( 'Reduces username enumeration by showing the same error message for all login failures. The same message is shown whether the username, password, or CAPTCHA is incorrect.', 'siteguard' ); ?>
 		</div>
 		<hr />
 

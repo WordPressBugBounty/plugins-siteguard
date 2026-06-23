@@ -5,9 +5,11 @@ class SiteGuard_LoginLock extends SiteGuard_Base {
 	protected $status                    = SITEGUARD_LOGIN_FAILED;
 	function __construct() {
 		global $siteguard_config;
-		if ( '1' == $siteguard_config->get( 'loginlock_enable' ) ) {
+
+		if ( '1' === $siteguard_config->get( 'loginlock_enable' ) ) {
 			add_action( 'wp_login_failed', array( $this, 'handler_wp_login_failed' ) );
 			add_filter( 'authenticate', array( $this, 'handler_authenticate' ), 20, 3 );
+			add_filter( 'xmlrpc_login_error', array( $this, 'handler_xmlrpc_login_error' ), 10, 2 );
 		}
 		if ( '1' == $siteguard_config->get( 'loginlock_fail_once' ) ) {
 			add_filter( 'wp_authenticate_user', array( $this, 'handler_wp_authenticate_user' ), 99, 2 );
@@ -97,12 +99,18 @@ class SiteGuard_LoginLock extends SiteGuard_Base {
 	}
 	function handler_authenticate( $user, $username, $password ) {
 		if ( $this->is_locked( $this->get_ip() ) ) {
-				$new_errors = new WP_Error();
-				$new_errors->add( 'siteguard-error', esc_html__( 'ERROR: LOGIN LOCKED', 'siteguard' ) );
-				$this->status = SITEGUARD_LOGIN_LOCKED;
-				return $new_errors;
+			$new_errors = new WP_Error();
+			$new_errors->add( 'siteguard-error', esc_html__( 'ERROR: LOGIN LOCKED', 'siteguard' ) );
+			$this->status = SITEGUARD_LOGIN_LOCKED;
+			return $new_errors;
 		}
 		return $user;
+	}
+	function handler_xmlrpc_login_error( $error, $user ) {
+		if ( is_wp_error( $user ) && 'siteguard-error' === $user->get_error_code() ) {
+			return new IXR_Error( 403, $user->get_error_message( 'siteguard-error' ) );
+		}
+		return $error;
 	}
 	function handler_login_shake( $shake_error_codes ) {
 		$shake_error_codes[] = self::SITEGUARD_FAIL_ONCE_ERROR_CODE;
@@ -134,7 +142,7 @@ class SiteGuard_LoginLock extends SiteGuard_Base {
 			$this->status = SITEGUARD_LOGIN_FAIL_ONCE;
 
 			$new_error = new WP_Error();
-			$new_error->add( self::SITEGUARD_FAIL_ONCE_ERROR_CODE, esc_html__( 'ERROR: Please login entry again', 'siteguard' ) );
+				$new_error->add( self::SITEGUARD_FAIL_ONCE_ERROR_CODE, esc_html__( 'ERROR: Please log in again', 'siteguard' ) );
 			add_filter( 'shake_error_codes', array( $this, 'handler_login_shake' ) );
 			return $new_error;
 		}

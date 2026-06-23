@@ -72,9 +72,9 @@ class SiteGuard_LoginHistory_Table extends WP_List_Table {
 	function get_columns() {
 		$columns = array(
 			// 'cb'        => '<input type="checkbox" />', //Render a checkbox instead of text
-			'time'       => esc_html__( 'Date Time', 'siteguard' ),
+			'time'       => esc_html__( 'Date/Time', 'siteguard' ),
 			'operation'  => esc_html__( 'Operation', 'siteguard' ),
-			'login_name' => esc_html__( 'Login Name', 'siteguard' ),
+			'login_name' => esc_html__( 'Username', 'siteguard' ),
 			'ip_address' => esc_html__( 'IP Address', 'siteguard' ),
 			'type'       => esc_html__( 'Type', 'siteguard' ),
 		);
@@ -133,12 +133,12 @@ class SiteGuard_LoginHistory_Table extends WP_List_Table {
 		}
 		return $result;
 	}
-	function get_filter_param_checkbox( $name, $default ) {
+	function get_filter_param_operator( $name, $default ) {
 		$result = $default;
 		if ( 'POST' === $_SERVER['REQUEST_METHOD'] ) {
 			if ( isset( $_POST['siteguard_filter_nonce'] ) && wp_verify_nonce( $_POST['siteguard_filter_nonce'], 'siteguard_login_history_filter' ) ) {
 				if ( isset( $_POST['filter_action'] ) ) {
-					if ( isset( $_POST[ $name ] ) ) {
+					if ( isset( $_POST[ $name ] ) && 'not' === sanitize_text_field( $_POST[ $name ] ) ) {
 						$result = true;
 					} else {
 						$result = false;
@@ -148,7 +148,7 @@ class SiteGuard_LoginHistory_Table extends WP_List_Table {
 		} else {
 			$cookie_name = 'siteguard_log_' . $name;
 			if ( isset( $_COOKIE[ $cookie_name ] ) ) {
-				$result = true;
+				$result = ( 'not' === $_COOKIE[ $cookie_name ] );
 			} else {
 				$result = false;
 			}
@@ -178,10 +178,10 @@ class SiteGuard_LoginHistory_Table extends WP_List_Table {
 		return $this->get_filter_param_normal( 'filter_ip_address', '' );
 	}
 	function get_filter_login_name_not() {
-		return $this->get_filter_param_checkbox( 'filter_login_name_not', false );
+		return $this->get_filter_param_operator( 'filter_login_name_not', false );
 	}
 	function get_filter_ip_address_not() {
-		return $this->get_filter_param_checkbox( 'filter_ip_address_not', false );
+		return $this->get_filter_param_operator( 'filter_ip_address_not', false );
 	}
 	function operation_dropdown() {
 		?>
@@ -189,23 +189,27 @@ class SiteGuard_LoginHistory_Table extends WP_List_Table {
 		<option <?php selected( $this->filter_operation, SITEGUARD_LOGIN_NOSELECT ); ?> value="<?php echo SITEGUARD_LOGIN_NOSELECT; ?>"><?php echo esc_html__( 'All Operations', 'siteguard' ); ?></option>
 		<option <?php selected( $this->filter_operation, SITEGUARD_LOGIN_SUCCESS ); ?> value="<?php echo SITEGUARD_LOGIN_SUCCESS; ?>"><?php echo esc_html__( 'Success', 'siteguard' ); ?></option>
 		<option <?php selected( $this->filter_operation, SITEGUARD_LOGIN_FAILED ); ?> value="<?php echo SITEGUARD_LOGIN_FAILED; ?>"><?php echo esc_html__( 'Failed', 'siteguard' ); ?></option>
-		<option <?php selected( $this->filter_operation, SITEGUARD_LOGIN_FAIL_ONCE ); ?> value="<?php echo SITEGUARD_LOGIN_FAIL_ONCE; ?>"><?php echo esc_html__( 'Fail once', 'siteguard' ); ?></option>
+		<option <?php selected( $this->filter_operation, SITEGUARD_LOGIN_FAIL_ONCE ); ?> value="<?php echo SITEGUARD_LOGIN_FAIL_ONCE; ?>"><?php echo esc_html__( 'Fail Once', 'siteguard' ); ?></option>
 		<option <?php selected( $this->filter_operation, SITEGUARD_LOGIN_LOCKED ); ?> value="<?php echo SITEGUARD_LOGIN_LOCKED; ?>"><?php echo esc_html__( 'Locked', 'siteguard' ); ?></option>
 		</select>
 		<?php
 	}
 	function login_name_input() {
 		?>
+		<select name="filter_login_name_not" id="filter-login-name-not">
+		<option <?php selected( $this->filter_login_name_not, false ); ?> value="is"><?php echo esc_html__( 'is', 'siteguard' ); ?></option>
+		<option <?php selected( $this->filter_login_name_not, true ); ?> value="not"><?php echo esc_html__( 'is not', 'siteguard' ); ?></option>
+		</select>
 		<input type="text" name="filter_login_name" id="filter-login-name" size="15" value="<?php echo esc_attr( $this->filter_login_name ); ?>">
-		<input type="checkbox" name="filter_login_name_not" id="filter-login-name-not" <?php checked( $this->filter_login_name_not, true ); ?> >
-		<label for="filter-login-name-not" ><?php echo esc_html__( 'Other', 'siteguard' ); ?></label>
 		<?php
 	}
 	function ip_address_input() {
 		?>
+		<select name="filter_ip_address_not" id="filter-ip-address-not">
+		<option <?php selected( $this->filter_ip_address_not, false ); ?> value="is"><?php echo esc_html__( 'is', 'siteguard' ); ?></option>
+		<option <?php selected( $this->filter_ip_address_not, true ); ?> value="not"><?php echo esc_html__( 'is not', 'siteguard' ); ?></option>
+		</select>
 		<input type="text" name="filter_ip_address" id="filter-ip-address" size="15" value="<?php echo esc_attr( $this->filter_ip_address ); ?>">
-		<input type="checkbox" name="filter_ip_address_not" id="filter-ip-address-not" <?php checked( $this->filter_ip_address_not, true ); ?> >
-		<label for="filter-ip-address-not" ><?php echo esc_html__( 'Other', 'siteguard' ); ?></label>
 		<?php
 	}
 	function type_dropdown() {
@@ -213,7 +217,7 @@ class SiteGuard_LoginHistory_Table extends WP_List_Table {
 		<select name="filter_type" id="filter-type">
 		<option <?php selected( $this->filter_type, SITEGUARD_LOGIN_TYPE_NOSELECT ); ?> value="<?php echo SITEGUARD_LOGIN_TYPE_NOSELECT; ?>"><?php echo esc_html__( 'All Types', 'siteguard' ); ?></option>
 		<option <?php selected( $this->filter_type, SITEGUARD_LOGIN_TYPE_NORMAL ); ?> value="<?php echo SITEGUARD_LOGIN_TYPE_NORMAL; ?>"><?php echo esc_html__( 'Login Page', 'siteguard' ); ?></option>
-		<option <?php selected( $this->filter_type, SITEGUARD_LOGIN_TYPE_XMLRPC ); ?> value="<?php echo SITEGUARD_LOGIN_TYPE_XMLRPC; ?>"><?php echo esc_html__( 'XMLRPC', 'siteguard' ); ?></option>
+		<option <?php selected( $this->filter_type, SITEGUARD_LOGIN_TYPE_XMLRPC ); ?> value="<?php echo SITEGUARD_LOGIN_TYPE_XMLRPC; ?>"><?php echo esc_html__( 'XML-RPC', 'siteguard' ); ?></option>
 		</select>
 		<?php
 	}
@@ -222,13 +226,13 @@ class SiteGuard_LoginHistory_Table extends WP_List_Table {
 			return;
 		}
 		?>
-		<div class="alignleft actions bulkactions">
-		<table>
+		<div class="alignleft actions bulkactions siteguard-login-history-filter">
+		<table class="siteguard-login-history-filter-table">
 		<tr>
 		<td><label for="filter-operation"><?php echo esc_html__( 'Operation', 'siteguard' ) . ':'; ?></label></td>
 		<td><?php $this->operation_dropdown(); ?></td>
 		<td width="30px"></td>
-		<td><label for="filter-login-name" ><?php echo esc_html__( 'Login Name', 'siteguard' ) . ':'; ?></label></td>
+		<td><label for="filter-login-name" ><?php echo esc_html__( 'Username', 'siteguard' ) . ':'; ?></label></td>
 		<td><?php $this->login_name_input(); ?></td>
 		</tr><tr>
 		<td><label for="filter-type" ><?php echo esc_html__( 'Type', 'siteguard' ) . ':'; ?></label></td>

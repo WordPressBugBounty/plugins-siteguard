@@ -126,7 +126,7 @@ class SiteGuard_LoginHistory extends SiteGuard_Base {
 				$result = esc_html__( 'Success', 'siteguard' );
 				break;
 			case SITEGUARD_LOGIN_FAIL_ONCE:
-				$result = esc_html__( 'Fail once', 'siteguard' );
+				$result = esc_html__( 'Fail Once', 'siteguard' );
 				break;
 			case SITEGUARD_LOGIN_LOCKED:
 				$result = esc_html__( 'Locked', 'siteguard' );
@@ -143,7 +143,7 @@ class SiteGuard_LoginHistory extends SiteGuard_Base {
 				$result = esc_html__( 'Login Page', 'siteguard' );
 				break;
 			case SITEGUARD_LOGIN_TYPE_XMLRPC:
-				$result = esc_html__( 'XMLRPC', 'siteguard' );
+				$result = esc_html__( 'XML-RPC', 'siteguard' );
 				break;
 			default:
 				$result = esc_html__( 'Unknown', 'siteguard' );
@@ -179,7 +179,6 @@ class SiteGuard_LoginHistory extends SiteGuard_Base {
 				$where .= 'ip_address = %s';
 			}
 			array_push( $values, $ip_address );
-
 		}
 		if ( true === $this->check_type( $type ) ) {
 			if ( ! empty( $where ) ) {

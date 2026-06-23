@@ -23,7 +23,20 @@ class SiteGuard_Menu_WAF_Tuning_Support extends SiteGuard_Base {
 	}
 	function htaccess_error() {
 		echo '<div class="error settings-error"><p><strong>';
-		esc_html_e( 'ERROR: Failed to .htaccess update.', 'siteguard' );
+		esc_html_e( 'ERROR: Failed to update settings. Please try again.', 'siteguard' );
+		echo '</strong></p></div>';
+	}
+	function htaccess_unavailable_error() {
+		echo '<div class="error settings-error"><p><strong>';
+		if ( isset( $_SERVER['SERVER_SOFTWARE'] ) && false !== stripos( $_SERVER['SERVER_SOFTWARE'], 'nginx' ) ) {
+			esc_html_e( 'ERROR: WAF tuning support is not available on Nginx. This feature edits the .htaccess file used by Apache.', 'siteguard' );
+		} elseif ( file_exists( ABSPATH . '.htaccess' ) && ! is_writable( ABSPATH . '.htaccess' ) ) {
+			esc_html_e( 'ERROR: Cannot enable WAF tuning support because the .htaccess file is not writable.', 'siteguard' );
+		} elseif ( ! is_writable( ABSPATH ) ) {
+			esc_html_e( 'ERROR: Cannot enable WAF tuning support because the WordPress installation directory is not writable.', 'siteguard' );
+		} else {
+			esc_html_e( 'ERROR: Cannot enable WAF tuning support. The .htaccess file appears to be ignored by the server (e.g. AllowOverride is disabled, or mod_rewrite is not loaded).', 'siteguard' );
+		}
 		echo '</strong></p></div>';
 	}
 	function render_page() {
@@ -54,7 +67,7 @@ class SiteGuard_Menu_WAF_Tuning_Support extends SiteGuard_Base {
 			if ( isset( $_GET['rule'] ) ) {
 				$ids = array( $_GET['rule'] );
 			} elseif ( isset( $_POST['rule'] ) ) {
-				$ids =  $_POST['rule'];
+				$ids = $_POST['rule'];
 			} else {
 				$ids = array();
 			}
@@ -158,16 +171,12 @@ class SiteGuard_Menu_WAF_Tuning_Support extends SiteGuard_Base {
 							if ( is_wp_error( $errors ) ) {
 								$error = true;
 							}
-							if ( false === $error && '1' === $_POST['waf_exclude_rule_enable'] && false === $this->check_module( 'siteguard' ) ) {
-								echo '<div class="error settings-error"><p><strong>';
-								esc_html_e( 'To use the WAF exclude rule, WAF ( SiteGuard Lite ) should be installed on Apache.', 'siteguard' );
-								echo '</strong></p></div>';
+							if ( false === $error && '1' === $_POST['waf_exclude_rule_enable'] && false === SiteGuard_Htaccess::test_htaccess() ) {
 								$error = true;
 								$siteguard_waf_exclude_rule->set_enable( '0' );
-								if ( false === $siteguard_waf_exclude_rule->feature_off() ) {
-									$this->htaccess_error();
-								}
+								$siteguard_waf_exclude_rule->feature_off();
 								$waf_exclude_rule_enable = '0';
+								$this->htaccess_unavailable_error();
 							}
 							if ( false === $error && false === $this->is_switch_value( $_POST['waf_exclude_rule_enable'] ) ) {
 								echo '<div class="error settings-error"><p><strong>';
@@ -187,7 +196,7 @@ class SiteGuard_Menu_WAF_Tuning_Support extends SiteGuard_Base {
 								} else {
 									$result = $siteguard_waf_exclude_rule->feature_off();
 									if ( true === $result ) {
-										echo '<div class="updated"><p><strong>' . esc_html__( 'Rules unapplied', 'siteguard' ) . '</strong></p></div>';
+										echo '<div class="updated"><p><strong>' . esc_html__( 'Rules removed', 'siteguard' ) . '</strong></p></div>';
 									}
 								}
 								if ( false === $result ) {
@@ -217,7 +226,7 @@ class SiteGuard_Menu_WAF_Tuning_Support extends SiteGuard_Base {
 			<ul>
 			<?php
 			foreach ( $errors->get_error_messages() as $err ) {
-				echo "<li>" . esc_html( $err ) . "</li>\n";
+				echo '<li>' . esc_html( $err ) . "</li>\n";
 			}
 			?>
 			</ul>
@@ -230,14 +239,14 @@ class SiteGuard_Menu_WAF_Tuning_Support extends SiteGuard_Base {
 		switch ( $action ) {
 			case 'list':
 				echo '<h2>' . esc_html__( 'WAF Tuning Support', 'siteguard' ) . ' <a href="?page=siteguard_waf_tuning_support&action=add" class="add-new-h2">' . esc_html__( 'Add New', 'siteguard' ) . '</a></h2>';
+				$documentation_link = '<a href="' . esc_url( __( 'https://www.jp-secure.com/siteguard_wp_plugin_en/howto/waf_tuning_support/', 'siteguard' ) ) . '" target="_blank">' . esc_html__( 'online documentation', 'siteguard' ) . '</a>';
 				echo '<div class="siteguard-description">'
-				. esc_html__( 'You can find docs about this function on ', 'siteguard' )
-				. '<a href="' . esc_url( __( 'https://www.jp-secure.com/siteguard_wp_plugin_en/howto/waf_tuning_support/', 'siteguard' ) )
-				. '" target="_blank">'
-				. esc_html__( 'here', 'siteguard' )
-				. '</a>'
-				. esc_html__( '.', 'siteguard' )
-				. '</div>';
+					. sprintf(
+						/* translators: %1$s: Link to the online documentation. */
+						esc_html__( 'See the %1$s.', 'siteguard' ),
+						$documentation_link
+					)
+					. '</div>';
 				?>
 				<form name="form1" method="post" action="">
 				<table class="form-table">
@@ -260,7 +269,7 @@ class SiteGuard_Menu_WAF_Tuning_Support extends SiteGuard_Base {
 						echo '</p>';
 					}
 					echo '<p class="description">';
-					esc_html_e( 'To use the WAF Tuning Support, WAF ( SiteGuard Lite ) should be installed on Apache.', 'siteguard' );
+						esc_html_e( 'This feature requires WAF (SiteGuard Server Edition) to be installed on the server.', 'siteguard' );
 					echo '</p>';
 					?>
 				</th>
@@ -271,8 +280,7 @@ class SiteGuard_Menu_WAF_Tuning_Support extends SiteGuard_Base {
 				<div class="siteguard-description">
 				<?php
 				esc_html_e(
-					'It is the function to create the rule to avoid the false detection in WordPress (including 403 error occurrence with normal access,) if WAF ( SiteGuard Lite ) by JP-Secure is installed on a Web server. WAF prevents the attack from the outside against the Web server, but for some WordPress or plugin functions, WAF may detect the attack which is actually not attack and block the function.
-By creating the WAF exclude rule, the WAF protection function can be activated while the false detection for the specified function is prevented.',
+						'If WAF (SiteGuard Server Edition) is installed on the server, it may occasionally block legitimate WordPress actions. Use this tool to create exceptions so those actions work while keeping WAF protection active.',
 					'siteguard'
 				)
 				?>
@@ -289,9 +297,9 @@ By creating the WAF exclude rule, the WAF protection function can be activated w
 			case 'add':
 			case 'edit':
 				if ( 'add' == $action ) {
-					echo '<h2>' . esc_html__( 'WAF Exclude Rule Add', 'siteguard' ) . '</h2>';
-				} else {
-					echo '<h2>' . esc_html__( 'WAF Exclude Rule Edit', 'siteguard' ) . '</h2>';
+						echo '<h2>' . esc_html__( 'Add WAF Exclusion Rule', 'siteguard' ) . '</h2>';
+					} else {
+						echo '<h2>' . esc_html__( 'Edit WAF Exclusion Rule', 'siteguard' ) . '</h2>';
 				}
 				?>
 				<form name="form1" method="post" action="<?php echo esc_url( menu_page_url( 'siteguard_waf_tuning_support', false ) ); ?>">
@@ -300,14 +308,14 @@ By creating the WAF exclude rule, the WAF protection function can be activated w
 				<th scope="row"><label for="sig"><?php esc_html_e( 'Signature', 'siteguard' ); ?></label></th>
 				<td>
 				<textarea name="sig" id="sig" style="width:350px;" rows="5" ><?php echo esc_html( $sig ); ?></textarea>
-				<p class="description"><?php esc_html_e( 'The detected signature name or signature ID is specified. To specify more than one, separate them with new line.', 'siteguard' ); ?></p>
+					<p class="description"><?php esc_html_e( 'Enter the detected signature name or signature ID. To specify more than one, enter each one on a separate line.', 'siteguard' ); ?></p>
 				</td>
 				</tr>
 				<tr>
 				<th scope="row"><label for="filename"><?php esc_html_e( 'Filename (optional)', 'siteguard' ); ?></label></th>
 				<td>
 				<input type="text" name="filename" id="filename" value="<?php echo esc_attr( $filename ); ?>" class="regular-text code" >
-				<p class="description"><?php esc_html_e( 'The target file name is specified. URL ( the part before ? ) can also be pasted.', 'siteguard' ); ?></p>
+					<p class="description"><?php esc_html_e( 'Enter the target filename. You can also paste the URL path before the question mark (?).', 'siteguard' ); ?></p>
 				</td>
 				</tr>
 				<tr>
@@ -333,7 +341,7 @@ By creating the WAF exclude rule, the WAF protection function can be activated w
 				echo '</form>';
 				break;
 			case 'delete':
-				echo '<h2>' . esc_html__( 'WAF Exclude Rule Delete', 'siteguard' ) . '</h2>';
+					echo '<h2>' . esc_html__( 'Delete WAF Exclusion Rule', 'siteguard' ) . '</h2>';
 				?>
 				<form name="form1" method="post" action="<?php echo esc_url( menu_page_url( 'siteguard_waf_tuning_support', false ) ); ?>">
 				<?php

@@ -39,14 +39,12 @@ class SiteGuard_Menu_Protect_XMLRPC extends SiteGuard_Base {
 		if ( '0' === $this->opt_val_feature ) {
 			$this->opt_val_xmlrpc   = '0';
 			$this->opt_val_pingback = '0';
-		} else {
-			if ( '0' === $this->opt_val_type ) {
+		} elseif ( '0' === $this->opt_val_type ) {
 				$this->opt_val_xmlrpc   = '0';
 				$this->opt_val_pingback = '1';
-			} else {
-				$this->opt_val_xmlrpc   = '1';
-				$this->opt_val_pingback = '0';
-			}
+		} else {
+			$this->opt_val_xmlrpc   = '1';
+			$this->opt_val_pingback = '0';
 		}
 	}
 	function render_page() {
@@ -68,18 +66,9 @@ class SiteGuard_Menu_Protect_XMLRPC extends SiteGuard_Base {
 			}
 			if ( false === $error
 				&& ( ( false === $this->is_switch_value( $_POST[ self::OPT_NAME_FEATURE ] ) )
-				  || ( false === $this->is_switch_value( $_POST[ self::OPT_NAME_TYPE ] ) ) ) ) {
+					|| ( false === $this->is_switch_value( $_POST[ self::OPT_NAME_TYPE ] ) ) ) ) {
 				echo '<div class="error settings-error"><p><strong>';
 				esc_html_e( 'ERROR: Invalid input value.', 'siteguard' );
-				echo '</strong></p></div>';
-				$error = true;
-			}
-			if ( false === $error
-				&& '1' === $_POST[ self::OPT_NAME_FEATURE ]
-				&& '1' === $_POST[ self::OPT_NAME_TYPE ]
-				&& false === SiteGuard_Htaccess::test_htaccess() ) {
-				echo '<div class="error settings-error"><p><strong>';
-				esc_html_e( 'mod_rewrite of .htaccess can not be used', 'siteguard' );
 				echo '</strong></p></div>';
 				$error = true;
 			}
@@ -92,41 +81,28 @@ class SiteGuard_Menu_Protect_XMLRPC extends SiteGuard_Base {
 				$siteguard_config->set( self::OPT_NAME_XMLRPC, $this->opt_val_xmlrpc );
 				$siteguard_config->set( self::OPT_NAME_PINGBACK, $this->opt_val_pingback );
 				$siteguard_config->update();
-				$result = true;
 				if ( '0' === $this->opt_val_xmlrpc ) {
-					$result = $siteguard_xmlrpc->feature_off();
+					$siteguard_xmlrpc->feature_off();
 				} else {
-					$result = $siteguard_xmlrpc->feature_on();
+					$siteguard_xmlrpc->feature_on();
 				}
-				if ( true === $result ) {
-					?>
-					<div class="updated"><p><strong><?php esc_html_e( 'Options saved.', 'siteguard' ); ?></strong></p></div>
-					<?php
-				} else {
-					$this->opt_val_feature  = $old_opt_val_feature;
-					$this->opt_val_val_type = $old_opt_val_type;
-					$this->page_to_db();
-					$siteguard_config->set( self::OPT_NAME_XMLRPC, $this->opt_val_xmlrpc );
-					$siteguard_config->set( self::OPT_NAME_PINGBACK, $this->opt_val_pingback );
-					$siteguard_config->update();
-					echo '<div class="error settings-error"><p><strong>';
-					esc_html_e( 'ERROR: Failed to .htaccess update.', 'siteguard' );
-					echo '</strong></p></div>';
-				}
+				?>
+				<div class="updated"><p><strong><?php esc_html_e( 'Options saved.', 'siteguard' ); ?></strong></p></div>
+				<?php
 			}
 		}
 
 		echo '<div class="wrap">';
 		echo '<img src="' . SITEGUARD_URL_PATH . 'images/sg_wp_plugin_logo_40.png" alt="SiteGuard Logo" />';
-		echo '<h2>' . esc_html__( 'Protect XMLRPC', 'siteguard' ) . '</h2>';
+		echo '<h2>' . esc_html__( 'Protect XML-RPC', 'siteguard' ) . '</h2>';
+		$documentation_link = '<a href="' . esc_url( __( 'https://www.jp-secure.com/siteguard_wp_plugin_en/howto/xmlrpc/', 'siteguard' ) ) . '" target="_blank">' . esc_html__( 'online documentation', 'siteguard' ) . '</a>';
 		echo '<div class="siteguard-description">'
-		. esc_html__( 'You can find docs about this function on ', 'siteguard' )
-		. '<a href="' . esc_url( __( 'https://www.jp-secure.com/siteguard_wp_plugin_en/howto/xmlrpc/', 'siteguard' ) )
-		. '" target="_blank">'
-		. esc_html__( 'here', 'siteguard' )
-		. '</a>'
-		. esc_html__( '.', 'siteguard' )
-		. '</div>';
+			. sprintf(
+				/* translators: %1$s: Link to the online documentation. */
+				esc_html__( 'See the %1$s.', 'siteguard' ),
+				$documentation_link
+			)
+			. '</div>';
 		?>
 		<form name="form1" method="post" action="">
 
@@ -158,13 +134,13 @@ class SiteGuard_Menu_Protect_XMLRPC extends SiteGuard_Base {
 				<label for="<?php echo self::OPT_NAME_TYPE . '_0'; ?>"><?php esc_html_e( 'Disable Pingback', 'siteguard' ); ?></label>
 				<br />
 				<input type="radio" name="<?php echo self::OPT_NAME_TYPE; ?>" id="<?php echo self::OPT_NAME_TYPE . '_1'; ?>" value="1" <?php checked( $this->opt_val_type, '1' ); ?> >
-				<label for="<?php echo self::OPT_NAME_TYPE . '_1'; ?>"><?php esc_html_e( 'Disable XMLRPC', 'siteguard' ); ?></label>
+					<label for="<?php echo self::OPT_NAME_TYPE . '_1'; ?>"><?php esc_html_e( 'Disable XML-RPC', 'siteguard' ); ?></label>
 			</td>
 		</tr>
 		</table>
 		<input type="hidden" name="update" value="Y">
 		<div class="siteguard-description">
-		<?php esc_html_e( 'To disable the Pingback, or disable the entire XMLRPC ( xmlrpc.php ), to prevent abuse. When you disable the whole XMLRPC, you will not be able to use plug-ins and apps that use XMLRPC. If there is trouble, please do not use this function.', 'siteguard' ); ?>
+		<?php esc_html_e( 'Prevents abuse by disabling pingbacks or all XML-RPC access through xmlrpc.php. If you disable all XML-RPC access, plugins and apps that rely on XML-RPC will stop working. If this causes problems, turn this feature off.', 'siteguard' ); ?>
 		</div>
 		<hr />
 		<?php

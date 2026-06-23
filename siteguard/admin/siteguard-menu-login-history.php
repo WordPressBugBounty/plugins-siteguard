@@ -14,10 +14,15 @@ class SiteGuard_Menu_Login_History extends SiteGuard_Base {
 		$img_path = SITEGUARD_URL_PATH . 'images/';
 		echo '<div class="wrap">';
 		echo '<img src="' . $img_path . 'sg_wp_plugin_logo_40.png" alt="SiteGuard Logo" />';
-		echo '<h2>' . esc_html__( 'Login history', 'siteguard' ) . "</h2>\n";
+		echo '<h2>' . esc_html__( 'Login History', 'siteguard' ) . "</h2>\n";
+		$documentation_link = '<a href="' . esc_url( __( 'https://www.jp-secure.com/siteguard_wp_plugin_en/howto/login_history/', 'siteguard' ) ) . '" target="_blank">' . esc_html__( 'online documentation', 'siteguard' ) . '</a>';
 		echo '<div class="siteguard-description">'
-		. esc_html__( 'You can find docs about this function on ', 'siteguard' )
-		. '<a href="' . esc_url( __( 'https://www.jp-secure.com/siteguard_wp_plugin_en/howto/login_history/', 'siteguard' ) ) . '" target="_blank">' . esc_html__( 'SiteGuard WP Plugin Page', 'siteguard' ) . '</a>' . esc_html__( '.', 'siteguard' ) . '</div>';
+			. sprintf(
+				/* translators: %1$s: Link to the online documentation. */
+				esc_html__( 'See the %1$s.', 'siteguard' ),
+				$documentation_link
+			)
+			. '</div>';
 		$error = siteguard_check_multisite();
 		if ( is_wp_error( $error ) ) {
 			echo '<p class="description">';
@@ -25,12 +30,12 @@ class SiteGuard_Menu_Login_History extends SiteGuard_Base {
 			echo '</p>';
 		}
 		?>
-		<form name="form1" method="post" action="">
+		<form name="form1" class="siteguard-login-history-form" method="post" action="">
 		<?php
 		wp_nonce_field( 'siteguard_login_history_filter', 'siteguard_filter_nonce' );
 		$this->wp_list_table->display(); ?>
 		<div class="siteguard-description">
-		<?php esc_html_e( 'Login history can be referenced. Let\'s see if there are any suspicious history. History, registered 10,000 maximum, will be removed from those old and more than 10,000.', 'siteguard' ); ?>
+			<?php esc_html_e( 'View recent login activity and check for suspicious entries. Up to 10,000 records are stored; when the limit is exceeded, the oldest records are deleted first.', 'siteguard' ); ?>
 		</div>
 		<input type="hidden" name="page" value="<?php echo esc_attr( $_REQUEST['page'] ); ?>">
 		</form>
@@ -100,13 +105,8 @@ class SiteGuard_Menu_Login_History extends SiteGuard_Base {
 			if ( isset( $_POST['filter_ip_address'] ) ) {
 				self::set_cookie_int( 'siteguard_log_filter_ip_address', sanitize_text_field( $_POST['filter_ip_address'] ), $expire );
 			}
-			if ( isset( $_POST['filter_login_name_not'] ) ) {
-				self::set_cookie_int( 'siteguard_log_filter_login_name_not', sanitize_text_field( $_POST['filter_login_name_not'] ), $expire );
-			}
-			if ( isset( $_POST['filter_ip_address_not'] ) ) {
-				self::set_cookie_int( 'siteguard_log_filter_ip_address_not', sanitize_text_field( $_POST['filter_ip_address_not'] ), $expire );
-			}
+			self::set_cookie_int( 'siteguard_log_filter_login_name_not', ( isset( $_POST['filter_login_name_not'] ) && 'not' === sanitize_text_field( $_POST['filter_login_name_not'] ) ) ? 'not' : 'is', $expire );
+			self::set_cookie_int( 'siteguard_log_filter_ip_address_not', ( isset( $_POST['filter_ip_address_not'] ) && 'not' === sanitize_text_field( $_POST['filter_ip_address_not'] ) ) ? 'not' : 'is', $expire );
 		}
-
 	}
 }

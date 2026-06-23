@@ -44,38 +44,24 @@ class SiteGuard_Menu_Author_Query extends SiteGuard_Base {
 				$siteguard_config->set( self::OPT_NAME_RESTAPI, $opt_val_restapi );
 				$siteguard_config->set( self::OPT_NAME_EXCLUDE, $this->cvt_ret2camma( $opt_val_exclude ) );
 				$siteguard_config->update();
-				$result = true;
-				if ( true === $result ) {
-					$opt_val_exclude = $this->cvt_camma2ret( $opt_val_exclude );
-					?>
-					<div class="updated"><p><strong><?php esc_html_e( 'Options saved.', 'siteguard' ); ?></strong></p></div>
-					<?php
-				} else {
-					$opt_val_feature = $old_opt_val_feature;
-					$opt_val_restapi = $old_opt_val_restapi;
-					$opt_val_exclude = $old_opt_val_exclude;
-					$siteguard_config->set( self::OPT_NAME_FEATURE, $opt_val_feature );
-					$siteguard_config->set( self::OPT_NAME_RESTAPI, $opt_val_restapi );
-					$siteguard_config->set( self::OPT_NAME_EXCLUDE, $this->cvt_ret2camma( $opt_val_exclude ) );
-					$siteguard_config->update();
-					echo '<div class="error settings-error"><p><strong>';
-					esc_html_e( 'ERROR: Failed to .htaccess update.', 'siteguard' );
-					echo '</strong></p></div>';
-				}
+				$opt_val_exclude = $this->cvt_camma2ret( $opt_val_exclude );
+				?>
+				<div class="updated"><p><strong><?php esc_html_e( 'Options saved.', 'siteguard' ); ?></strong></p></div>
+				<?php
 			}
 		}
 
 		echo '<div class="wrap">';
 		echo '<img src="' . SITEGUARD_URL_PATH . 'images/sg_wp_plugin_logo_40.png" alt="SiteGuard Logo" />';
 		echo '<h2>' . esc_html__( 'Block Author Query', 'siteguard' ) . '</h2>';
+		$documentation_link = '<a href="' . esc_url( __( 'https://www.jp-secure.com/siteguard_wp_plugin_en/howto/author_query/', 'siteguard' ) ) . '" target="_blank">' . esc_html__( 'online documentation', 'siteguard' ) . '</a>';
 		echo '<div class="siteguard-description">'
-		. esc_html__( 'You can find docs about this function on ', 'siteguard' )
-		. '<a href="' . esc_url( __( 'https://www.jp-secure.com/siteguard_wp_plugin_en/howto/author_query/', 'siteguard' ) )
-		. '" target="_blank">'
-		. esc_html__( 'here', 'siteguard' )
-		. '</a>'
-		. esc_html__( '.', 'siteguard' )
-		. '</div>';
+			. sprintf(
+				/* translators: %1$s: Link to the online documentation. */
+				esc_html__( 'See the %1$s.', 'siteguard' ),
+				$documentation_link
+			)
+			. '</div>';
 		?>
 		<form name="form1" method="post" action="">
 
@@ -109,9 +95,9 @@ class SiteGuard_Menu_Author_Query extends SiteGuard_Base {
 
 		</tr>
 		</tr><tr>
-		<th scope="row"><label for="<?php echo self::OPT_NAME_EXCLUDE; ?>"><?php echo esc_html_e( 'Exclude Plugins', 'siteguard' ); ?></label></th>
-		<td><textarea name="<?php echo self::OPT_NAME_EXCLUDE; ?>" id="<?php echo self::OPT_NAME_EXCLUDE; ?>" class="siteguard-box-300" cols=40 rows=10 ><?php echo esc_textarea( $opt_val_exclude ); ?></textarea>
-		<p class="description"><?php esc_html_e( 'Please specify the plugin. To specify more than one, separate them with new line. ', 'siteguard' ); ?></p></br>
+			<th scope="row"><label for="<?php echo self::OPT_NAME_EXCLUDE; ?>"><?php echo esc_html_e( 'Excluded Plugins', 'siteguard' ); ?></label></th>
+			<td><textarea name="<?php echo self::OPT_NAME_EXCLUDE; ?>" id="<?php echo self::OPT_NAME_EXCLUDE; ?>" class="siteguard-box-300" cols=40 rows=10 ><?php echo esc_textarea( $opt_val_exclude ); ?></textarea>
+			<p class="description"><?php esc_html_e( 'Specify plugins to exclude. Enter one per line.', 'siteguard' ); ?></p></br>
 		<script>
 		function add_value(){
 			const crlf = String.fromCharCode(13) + String.fromCharCode(10)
@@ -145,14 +131,21 @@ class SiteGuard_Menu_Author_Query extends SiteGuard_Base {
 		}
 		?>
 		</select>
-		<input type="button" value="<?php esc_html_e( 'Add Exclude Plugin', 'siteguard' ); ?>" onclick="add_value()" />
-		<p class="description"><?php esc_html_e( 'This is a list of valid plugins. You can select it and add it to the exclude plugins.', 'siteguard' ); ?></p></br>
+		<input type="button" value="<?php esc_html_e( 'Add Excluded Plugin', 'siteguard' ); ?>" onclick="add_value()" />
+		<p class="description"><?php esc_html_e( 'This list shows active plugins that can be excluded. Select a plugin and add it to the exclusion list.', 'siteguard' ); ?></p></br>
 		</td>
 		</tr>
 		</table>
 		<input type="hidden" name="update" value="Y">
 		<div class="siteguard-description">
-		<?php esc_html_e( 'Prevents leakage of user names due to "/?author=<number>" access. You can also disable the REST API to prevent username leaks via the REST API. If there are plugins that do not work due to the REST API being disabled, please add the plugin name to the excluded plugins. You can add the plugin name from the list of enabled plugin names.', 'siteguard' ); ?>
+		<?php
+		$author_query_example = '<code>' . esc_html( '/?author=123' ) . '</code>';
+		printf(
+			/* translators: %1$s: Example author query. */
+			esc_html__( 'Prevents username leakage through author queries such as %1$s. You can also disable the REST API to prevent username leakage through REST API requests. If disabling the REST API causes plugin compatibility issues, add the affected plugins to the excluded plugins list.', 'siteguard' ),
+			$author_query_example
+		);
+		?>
 		</div>
 		<hr />
 		<?php

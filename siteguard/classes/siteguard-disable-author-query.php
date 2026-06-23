@@ -4,7 +4,7 @@ class SiteGuard_Disable_Author_Query extends SiteGuard_Base {
 
 	function __construct() {
 		global $siteguard_config;
-		if ( '1' == $siteguard_config->get( 'block_author_query_enable' ) ) {
+		if ( '1' === $siteguard_config->get( 'block_author_query_enable' ) ) {
 			add_action( 'init', array( $this, 'handler_author_query' ) );
 			if ( '1' == $siteguard_config->get( 'disable_restapi_enable' ) ) {
 				add_filter( 'rest_pre_dispatch', array( $this, 'handler_deny_rest_api' ), 10, 3 );
@@ -20,7 +20,8 @@ class SiteGuard_Disable_Author_Query extends SiteGuard_Base {
 	}
 	function handler_author_query() {
 		if ( isset( $_SERVER['REQUEST_URI'] ) ) {
-			if ( ! is_admin() && preg_match( '/[?&]author=[0-9]+/i', $_SERVER['REQUEST_URI'] ) ) {
+			$request_uri = urldecode( $_SERVER['REQUEST_URI'] );
+			if ( ! is_admin() && preg_match( '/[?&]author=[0-9]+/i', $request_uri ) ) {
 				wp_safe_redirect( home_url() );
 				exit;
 			}

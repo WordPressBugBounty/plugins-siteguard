@@ -5,6 +5,10 @@
 	clear: both;
 }
 
+.siteguard-form-table tr {
+	height: 35px;
+}
+
 .siteguard-form-table,
 .siteguard-form-table td,
 .siteguard-form-table th,
@@ -31,7 +35,7 @@
 
 .siteguard-form-table th {
 	border:1px solid #cccccc;
-	vertical-align: top;
+	vertical-align: middle;
 	text-align: left;
 	padding: 5px 5px 0px 5px;
 	width: 300px;
@@ -51,6 +55,18 @@
 }
 
 .siteguard-form-table th img {
+	vertical-align: middle;
+}
+
+.siteguard-status-icon {
+	margin: 3px;
+}
+
+.siteguard-status-icon-spacer {
+	display: inline-block;
+	width: 24px;
+	height: 24px;
+	margin: 3px;
 	vertical-align: middle;
 }
 
@@ -82,62 +98,70 @@ table.siteguard-form-table td .updated {
 }
 
 .siteguard-radios {
-	display:inline-block;
-	margin:0;
-	padding:0;
-	clear:both;
+	display: inline-flex;
+	align-items: stretch;
+	gap: 2px;
+	margin: 0;
+	padding: 3px;
+	clear: both;
+	border: 1px solid #c3c4c7;
+	border-radius: 6px;
+	background: #f0f0f1;
+	box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 .siteguard-radios li {
-	display:inline-block;
-	position:relative;
-	float:left;
-	list-style:none;
-	border:solid 1px #ddd;
-	border-right:none;
-	overflow:hidden;
-}
-.siteguard-radios li:first-child {
-	border-radius:5px 0 0 5px;
-}
-.siteguard-radios li:last-child {
-	border-right:solid 1px #ddd;
-	border-radius:0 5px 5px 0;
+	display: block;
+	position: relative;
+	float: none;
+	margin: 0;
+	list-style: none;
+	border: 0;
+	border-radius: 4px;
 }
 .siteguard-radios label {
-	display:block;
-	min-width:3em;
-	text-align:center;
-	background:#eee;
-	background:-webkit-gradient(linear, left top, left bottom, from(#FFF),to(#EEE));
-	background:-moz-linear-gradient(top, #fff, #eee);
-	border:solid 1px rgba(255,255,255,0.2);
-	padding:5px;
-	text-shadow:0 1px 0 rgba(255,255,255,0.5);
-}
-.siteguard-radios li:first-child label {
-	border-radius:3px 0 0 3px;
-}
-.siteguard-radios li:last-child label {
-	border-radius:0 3px 3px 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	box-sizing: border-box;
+	min-width: 52px;
+	min-height: 32px;
+	padding: 0 12px;
+	border: 0;
+	border-radius: 4px;
+	color: #50575e;
+	background: transparent;
+	font-weight: 600;
+	line-height: 1;
+	text-align: center;
+	text-shadow: none;
+	cursor: pointer;
+	transition: background-color 0.12s ease, box-shadow 0.12s ease, color 0.12s ease;
 }
 .siteguard-radios input[type=radio] {
-	position:absolute;
-	opacity:0;
-	width:100%;
-	height:100%;
-	margin:0;
-	cursor:pointer;
+	position: absolute;
+	inset: 0;
+	z-index: 1;
+	width: 100%;
+	height: 100%;
+	margin: 0;
+	opacity: 0;
+	cursor: pointer;
 }
-.siteguard-radios input[type=radio]:checked {
-	cursor:auto;
+.siteguard-radios input[type=radio]:hover + label {
+	color: #1d2327;
+	background: #fff;
 }
 .siteguard-radios input[type=radio]:checked + label {
-	color:#fff;
-	text-shadow:0 -1px 0 rgba(0,0,0,0.2);
-	border:solid 1px rgba(0,0,0,0.1);
-	background:#666;
-	background:-webkit-gradient(linear, left top, left bottom, from(#313131),to(#626262));
-	background:-moz-linear-gradient(top, #333, #666);
+	color: #fff;
+	background: var(--wp-admin-theme-color, #3858e9);
+	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+}
+.siteguard-radios input[type=radio]:focus-visible + label {
+	outline: 2px solid var(--wp-admin-theme-color, #3858e9);
+	outline-offset: 2px;
+}
+.siteguard-radios ~ p.description {
+	margin-top: 8px;
 }
 .siteguard-box-300 {
 	width: 300px;
@@ -150,4 +174,27 @@ div.siteguard-description {
 	padding: 5px 5px 5px 5px;
 	border:solid 1px #cccccc;
 	background-color: #fdfdfd;
+}
+
+.siteguard-login-history-filter-table {
+	margin-bottom: 6px;
+}
+
+.siteguard-login-history-filter-table td {
+	padding: 0 6px 4px 0;
+	vertical-align: middle;
+}
+
+#filter-by-operation,
+#filter-type {
+	min-width: 150px;
+}
+
+#filter-login-name-not,
+#filter-ip-address-not {
+	min-width: 85px;
+}
+
+.siteguard-login-history-form .wp-list-table {
+	margin: 8px 0;
 }

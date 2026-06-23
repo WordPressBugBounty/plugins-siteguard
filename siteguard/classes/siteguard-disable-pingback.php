@@ -4,7 +4,7 @@ class SiteGuard_Disable_Pingback extends SiteGuard_Base {
 
 	function __construct() {
 		global $siteguard_config;
-		if ( '1' == $siteguard_config->get( 'disable_pingback_enable' ) ) {
+		if ( '1' === $siteguard_config->get( 'disable_pingback_enable' ) ) {
 			add_filter( 'xmlrpc_methods', array( $this, 'handler_xmlrpc_methods' ) );
 		}
 	}

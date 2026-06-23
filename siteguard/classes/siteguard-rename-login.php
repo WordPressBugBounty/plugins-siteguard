@@ -1,44 +1,69 @@
 <?php
 
 require_once ABSPATH . '/wp-admin/includes/plugin.php';
+require_once SITEGUARD_PATH . 'really-simple-captcha/siteguard-really-simple-captcha.php';
 
 class SiteGuard_RenameLogin extends SiteGuard_Base {
-	private $denied_login;
+	private $denied_login = false;
+
 	protected static $incompatible_plugins = array(
 		'WordPress HTTPS (SSL)' => 'wordpress-https/wordpress-https.php',
 		'qTranslate X'          => 'qtranslate-x/qtranslate.php',
 	);
 	public static $htaccess_mark           = '#==== SITEGUARD_RENAME_LOGIN_SETTINGS';
 
+	const STUB_WRITE_FAIL_TRANSIENT = 'siteguard_rl_stub_fail';
+
 	function __construct() {
 		global $siteguard_config;
-		if ( '1' == $siteguard_config->get( 'renamelogin_enable' ) ) {
+
+		add_filter( 'logout_url', array( $this, 'filter_logout_url' ), 10, 2 );
+		add_action( 'admin_bar_menu', array( $this, 'rewrite_adminbar_logout' ), 999 );
+		add_action( 'admin_notices', array( $this, 'maybe_notice_stub_failed' ) );
+
+		if ( '1' === $siteguard_config->get( 'renamelogin_enable' ) ) {
 			if ( null !== $this->get_active_incompatible_plugins() ) {
 				$siteguard_config->set( 'renamelogin_enable', '0' );
 				$siteguard_config->update();
 				$this->feature_off();
-				return;
+			} else {
+				$this->add_filter();
 			}
-			$this->add_filter();
 		}
+
+		add_action( 'template_redirect', array( $this, 'guard_disabled_entry' ), 0 );
+		add_action( 'template_redirect', array( $this, 'handle_siteguard_rescue' ), 0 );
 	}
+
 	static function get_mark() {
 		return self::$htaccess_mark;
 	}
+
 	function init() {
 		global $siteguard_config;
+
 		$this->denied_login = false;
-		$siteguard_config->set( 'renamelogin_path', 'login_' . sprintf( '%05d', siteguard_rand( 1, 99999 ) ) );
-		$siteguard_config->set( 'redirect_enable', '0' );
+
+		if ( '' === $siteguard_config->get( 'renamelogin_path' ) ) {
+			$siteguard_config->set( 'renamelogin_path', 'login_' . sprintf( '%05d', siteguard_rand( 1, 99999 ) ) );
+		}
+		if ( '' === $siteguard_config->get( 'redirect_enable' ) ) {
+			$siteguard_config->set( 'redirect_enable', '0' );
+		}
+		if ( '' === $siteguard_config->get( 'rescue_enable' ) ) {
+			$siteguard_config->set( 'rescue_enable', '1' );
+		}
+		if ( '' === $siteguard_config->get( 'renamelogin_stub' ) ) {
+			$siteguard_config->set( 'renamelogin_stub', SITEGUARD_RENAME_MODE_HTACCESS ); // Apache=0 / Nginx=1
+		}
 		$siteguard_config->update();
-		if ( $this->check_module( 'rewrite' ) &&
-			null === $this->get_active_incompatible_plugins() &&
-			true === siteguard_check_multisite() &&
-			SiteGuard_Htaccess::test_htaccess()
+
+		if ( true === siteguard_check_multisite()
+			&& null === $this->get_active_incompatible_plugins()
 		) {
 			$siteguard_config->set( 'renamelogin_enable', '1' );
 			$siteguard_config->update();
-			if ( false === $this->feature_on() ) {
+			if ( ! $this->feature_on() ) {
 				$siteguard_config->set( 'renamelogin_enable', '0' );
 				$siteguard_config->update();
 			}
@@ -47,136 +72,471 @@ class SiteGuard_RenameLogin extends SiteGuard_Base {
 			$siteguard_config->update();
 		}
 	}
+
 	function get_active_incompatible_plugins() {
 		$result = array();
 		foreach ( self::$incompatible_plugins as $name => $path ) {
 			if ( is_plugin_active( $path ) ) {
-				array_push( $result, $name );
+				$result[] = $name;
 			}
 		}
-		if ( empty( $result ) ) {
-			return null;
-		} else {
-			return $result;
-		}
+		return empty( $result ) ? null : $result;
 	}
+
 	function add_filter() {
 		add_filter( 'plugins_loaded', array( $this, 'handler_plugins_loaded' ), 9999 );
+
+		add_action( 'init', array( $this, 'guard_wp_login_direct_access' ), 0 );
 		add_filter( 'login_init', array( $this, 'handler_login_init' ), 10, 2 );
 		add_filter( 'site_url', array( $this, 'handler_site_url' ), 10, 2 );
 		add_filter( 'network_site_url', array( $this, 'handler_site_url' ), 10, 2 );
 		add_filter( 'wp_redirect', array( $this, 'handler_wp_redirect' ), 10, 2 );
 		add_filter( 'register', array( $this, 'handler_register' ) );
 		add_filter( 'auth_redirect_scheme', array( $this, 'handler_stop_redirect' ), 9999 );
+
 		remove_action( 'template_redirect', 'wp_redirect_admin_locations', 1000 );
 	}
+
+	public function can_use_htaccess() {
+		if ( ! isset( $_SERVER['SERVER_SOFTWARE'] )
+			|| ( false === strpos( strtolower( $_SERVER['SERVER_SOFTWARE'] ), 'apache' ) && false === strpos( strtolower( $_SERVER['SERVER_SOFTWARE'] ), 'litespeed' ) )
+		) {
+			return false;
+		}
+		return SiteGuard_Htaccess::is_writable_htaccess();
+	}
+
+	private function is_stub_mode() {
+		global $siteguard_config;
+		return SITEGUARD_RENAME_MODE_STUB === $siteguard_config->get( 'renamelogin_stub' );
+	}
+
+	private function slug() {
+		global $siteguard_config;
+		$slug = trim( (string) $siteguard_config->get( 'renamelogin_path' ), '/' );
+		return $slug === '' ? 'login' : $slug;
+	}
+
+	private function old_slug() {
+		global $siteguard_config;
+		$slug = trim( (string) $siteguard_config->get( 'oldlogin_path' ), '/' );
+		return $slug === '' ? 'login' : $slug;
+	}
+
+	private function stub_filename() {
+		return $this->slug() . '.php';
+	}
+
+	private function old_stub_filename() {
+		return $this->old_slug() . '.php';
+	}
+
+	private function stub_abspath() {
+		return trailingslashit( ABSPATH ) . $this->stub_filename();
+	}
+
+	private function old_stub_abspath() {
+		return trailingslashit( ABSPATH ) . $this->old_stub_filename();
+	}
+
+	private function stub_url() {
+		return rtrim( site_url(), '/' ) . '/' . $this->stub_filename();
+	}
+
+	private function install_stub() {
+		$file = $this->stub_abspath();
+		$code = "<?php\n/* Generated by SiteGuard WP Plugin */\nrequire_once __DIR__ . '/wp-login.php';\n";
+		$ok   = @file_put_contents( $file, $code );
+		if ( false === $ok ) {
+			set_transient( self::STUB_WRITE_FAIL_TRANSIENT, 1, MINUTE_IN_SECONDS * 10 );
+			return false;
+		}
+		@chmod( $file, 0644 );
+		return true;
+	}
+
+	private function remove_stub( $file ) {
+		if ( file_exists( $file ) ) {
+			// To prevent accidental deletion of important files, check if the file was generated by this plugin.
+			$content = file_get_contents( $file, false, null, 0, 100 );
+			if ( false !== $content && false !== strpos( $content, '/* Generated by SiteGuard WP Plugin */' ) ) {
+				@unlink( $file );
+			}
+		}
+	}
+
+	/**
+	 * Check if the current request is for the login page (renamed or original).
+	 *
+	 * @return bool
+	 */
+	public function is_login_request() {
+		$req_path    = isset( $_SERVER['REQUEST_URI'] ) ? (string) parse_url( $_SERVER['REQUEST_URI'], PHP_URL_PATH ) : '';
+		$script_name = isset( $_SERVER['SCRIPT_NAME'] ) ? basename( $_SERVER['SCRIPT_NAME'] ) : '';
+		return ( $script_name === 'wp-login.php' || $req_path === '/' . $this->stub_filename() || $req_path === '/' . $this->slug() );
+	}
+
+	/**
+	 * Block direct access to wp-login.php at the init hook.
+	 *
+	 * Runs before login_init so that requests routed through index.php fallback
+	 * (e.g. //wp-login.php on subdirectory installs) are stopped before WordPress
+	 * core URL canonicalization can leak the renamed slug via wp_redirect.
+	 */
+	public function guard_wp_login_direct_access() {
+		$link = isset( $_SERVER['REQUEST_URI'] ) ? sanitize_url( $_SERVER['REQUEST_URI'] ) : '';
+		// Collapse leading consecutive slashes before parse_url, otherwise //wp-login.php
+		// is parsed as host=wp-login.php with NULL path and the comparison would pass through.
+		$link     = preg_replace( '#^/+#', '/', $link );
+		$req_path = (string) parse_url( $link, PHP_URL_PATH );
+		$req_path = preg_replace( '#/+#', '/', $req_path );
+		// URL-decode and strip trailing whitespace, control characters, dots, and non-ASCII bytes
+		// so that variants like wp-login.php. or wp-login.php%C2%A0 (NBSP) are caught after
+		// WordPress core URL normalization would otherwise treat them as wp-login.php.
+		$req_path = urldecode( $req_path );
+		$req_path = preg_replace( '/[\s.\x00-\x1f\x7f-\xff]+$/', '', $req_path );
+		$req_path = rtrim( $req_path, '/' );
+
+		// Avoid site_url() because handler_site_url replaces wp-login.php with the renamed slug.
+		// get_option('siteurl') returns the raw value before any filtering.
+		$siteurl = (string) get_option( 'siteurl' );
+
+		// wp-register.php is a legacy entry that WordPress core redirects to
+		// wp-login.php?action=register; the URL build path also goes through
+		// handler_site_url so the slug leaks. Block both filenames here.
+		$blocked = array( '/wp-login.php', '/wp-register.php' );
+		foreach ( $blocked as $rel ) {
+			$expected = rtrim( (string) parse_url( $siteurl . $rel, PHP_URL_PATH ), '/' );
+			// Case-insensitive to also block WP-LOGIN.PHP and other case variants.
+			if ( 0 === strcasecmp( $expected, $req_path ) || 0 === strcasecmp( $rel, $req_path ) ) {
+				status_header( 404 );
+				nocache_headers();
+				exit;
+			}
+		}
+	}
+
 	function handler_login_init() {
-		global $siteguard_config;
-		$new_login_page = $siteguard_config->get( 'renamelogin_path' );
-		if ( isset( $_SERVER['REQUEST_URI'] ) ) {
-			$link = sanitize_url( $_SERVER['REQUEST_URI'] );
-		} else {
-			$link = '';
-		}
-		if ( false !== strpos( $link, 'wp-login' ) ) {
-			$referer = wp_get_referer();
-			if ( false === strpos( $referer, $new_login_page ) ) {
-				$this->set_404();
-			} else {
-				$result = $this->convert_url( $link );
-				wp_redirect( $result );
-			}
-		}
-	}
-	function convert_url( $link ) {
-		global $siteguard_config;
-		$result = $link;
-		$custom_login_url = $siteguard_config->get( 'renamelogin_path' );
-		if ( false !== strpos( $link, 'wp-login.php?action=register' ) && $this->denied_login) {
+		$link     = isset( $_SERVER['REQUEST_URI'] ) ? sanitize_url( $_SERVER['REQUEST_URI'] ) : '';
+		$link     = preg_replace( '#^/+#', '/', $link );
+		$req_path = (string) parse_url( $link, PHP_URL_PATH );
+		$req_path = urldecode( $req_path );
+		$req_path = preg_replace( '/[\s.\x00-\x1f\x7f-\xff]+$/', '', $req_path );
+		$req_path = rtrim( $req_path, '/' );
+
+		if ( 0 === strcasecmp( '/wp-login.php', $req_path ) ) {
 			$this->set_404();
-		} else {
-			if ( false !== strpos( $link, 'wp-login.php' ) ) {
-				$result = str_replace( 'wp-login.php', $custom_login_url, $link );
-			}
+		}
+	}
+
+	function convert_url( $link ) {
+		$result = $link;
+		$repl   = $this->is_stub_mode() ? $this->stub_filename() : $this->slug();
+
+		if ( false !== strpos( $link, 'wp-login.php?action=register' ) && $this->denied_login ) {
+			$this->set_404();
+		} elseif ( false !== strpos( $link, 'wp-login.php' ) ) {
+				$result = str_replace( 'wp-login.php', $repl, $link );
 		}
 		return $result;
 	}
+
 	function handler_site_url( $link ) {
-		$result = $this->convert_url( $link );
-		return $result;
-	}
+		return $this->convert_url( $link ); }
 	function handler_register( $link ) {
-		$result = $this->convert_url( $link );
-		return $result;
-	}
+		return $this->convert_url( $link ); }
 	function handler_wp_redirect( $link, $status_code ) {
 		if ( ( ( strlen( $link ) <= 5 || 'http:' !== strtolower( substr( $link, 0, 5 ) ) ) && ( strlen( $link ) <= 6 || 'https:' !== strtolower( substr( $link, 0, 6 ) ) ) )
 		|| ( isset( $_SERVER['HTTPS'] ) && strtolower( $_SERVER['HTTPS'] ) !== 'off' && 'https' === strtolower( substr( $link, 0, strpos( $link, '://' ) ) ) )
 		|| ( ( ! isset( $_SERVER['HTTPS'] ) || strtolower( $_SERVER['HTTPS'] ) === 'off' ) && 'http' === strtolower( substr( $link, 0, strpos( $link, '://' ) ) ) ) ) {
-			$result = $this->convert_url( $link );
-		} else {
-			$result = $link;
+			return $this->convert_url( $link );
 		}
-		return $result;
+		return $link;
 	}
-	function insert_rewrite_rules( $rules ) {
-		global $siteguard_config;
-		$custom_login_url                        = $siteguard_config->get( 'renamelogin_path' );
-		$newrules                                = array();
-		$newrules[ $custom_login_url . '(.*)$' ] = 'wp-login.php$1';
-		return $newrules + $rules;
-	}
-	function update_settings() {
-		global $siteguard_config;
-		$custom_login_url = $siteguard_config->get( 'renamelogin_path' );
-		$parse_url        = parse_url( site_url() );
-		if ( false === $parse_url ) {
-			$base = '/';
-		} else {
-			if ( isset( $parse_url['path'] ) ) {
-				$base = $parse_url['path'] . '/';
-			} else {
-				$base = '/';
-			}
+
+	private function htaccess_body() {
+		$slug = $this->slug();
+
+		$parse_url = parse_url( site_url() );
+		$base      = '/';
+		if ( false !== $parse_url && isset( $parse_url['path'] ) && $parse_url['path'] !== '' ) {
+			$base = rtrim( $parse_url['path'], '/' ) . '/';
 		}
 
-		$htaccess_str  = "<IfModule mod_rewrite.c>\n";
-		$htaccess_str .= "    RewriteEngine on\n";
-		$htaccess_str .= "    RewriteBase $base\n";
-		$htaccess_str .= "    RewriteRule ^wp-signup\.php 404-siteguard [L]\n";
-		$htaccess_str .= "    RewriteRule ^wp-activate\.php 404-siteguard [L]\n";
-		$htaccess_str .= "    RewriteRule ^$custom_login_url(.*)$ wp-login.php$1 [L]\n";
-		$htaccess_str .= "</IfModule>\n";
+		$ht  = "<IfModule mod_rewrite.c>\n";
+		$ht .= "    RewriteEngine on\n";
+		$ht .= "    RewriteBase {$base}\n";
+		$ht .= "    RewriteRule ^wp-signup\\.php 404-siteguard [L]\n";
+		$ht .= "    RewriteRule ^wp-activate\\.php 404-siteguard [L]\n";
+		$ht .= "    RewriteRule ^{$slug}(.*)$ wp-login.php\$1 [L]\n";
+		$ht .= "</IfModule>\n";
 
-		return $htaccess_str;
+		return $ht;
 	}
+
 	function feature_on() {
-		global $siteguard_htaccess;
-		if ( false === SiteGuard_Htaccess::check_permission() ) {
-			return false;
+		global $siteguard_htaccess, $siteguard_config;
+
+		// Remove .htaccess feature
+		SiteGuard_Htaccess::clear_settings( self::$htaccess_mark );
+
+		// Remove old stubs regardless of mode
+		$this->remove_stub( $this->old_stub_abspath() );
+		if ( $this->slug() !== $this->old_slug() ) {
+			$this->remove_stub( $this->stub_abspath() );
 		}
-		$data = $this->update_settings();
-		$mark = $this->get_mark();
-		return $siteguard_htaccess->update_settings( $mark, $data );
+
+		if ( $this->can_use_htaccess() && SiteGuard_Htaccess::test_htaccess() ) {
+			$data = $this->htaccess_body();
+			$mark = self::get_mark();
+			$ok   = $siteguard_htaccess->update_settings( $mark, $data );
+			if ( $ok ) {
+				$siteguard_config->set( 'renamelogin_stub', SITEGUARD_RENAME_MODE_HTACCESS );
+				$siteguard_config->update();
+			}
+			return (bool) $ok;
+		}
+
+		if ( $this->install_stub() ) {
+			$siteguard_config->set( 'renamelogin_stub', SITEGUARD_RENAME_MODE_STUB );
+			$siteguard_config->update();
+			return true;
+		}
+
+		return false;
 	}
-	static function feature_off() {
-		$mark = self::get_mark();
-		return SiteGuard_Htaccess::clear_settings( $mark );
+
+	static function feature_off( $old_slug = null ) {
+		// Remove .htaccess feature
+		SiteGuard_Htaccess::clear_settings( self::$htaccess_mark );
+
+		// Remove stubs
+		$that = new self();
+		$that->remove_stub( $that->old_stub_abspath() );
+		if ( $that->slug() !== $that->old_slug() ) {
+			$that->remove_stub( $that->stub_abspath() );
+		}
+
+		// reset mode
+		global $siteguard_config;
+		$siteguard_config->set( 'renamelogin_stub', SITEGUARD_RENAME_MODE_HTACCESS );
+		$siteguard_config->update();
+
+		return true;
 	}
+
+	public function guard_disabled_entry() {
+		global $siteguard_config, $wp;
+
+		if ( '1' === $siteguard_config->get( 'renamelogin_enable' ) ) {
+			return;
+		}
+
+		$slug     = $this->slug();
+		$req_path = isset( $_SERVER['REQUEST_URI'] ) ? (string) parse_url( $_SERVER['REQUEST_URI'], PHP_URL_PATH ) : '';
+
+		$hit_slug = ( $req_path !== '' && rtrim( $req_path, '/' ) === '/' . $slug );
+		$hit_stub = ( $req_path !== '' && rtrim( $req_path, '/' ) === '/' . $this->stub_filename() );
+
+		if ( $hit_slug || $hit_stub ) {
+			if ( isset( $_REQUEST['action'] ) && $_REQUEST['action'] === 'logout' ) {
+				wp_safe_redirect( wp_logout_url() );
+				exit;
+			}
+			$this->set_404();
+		}
+	}
+
+	public function handle_siteguard_rescue() {
+		global $siteguard_config;
+
+		if ( '1' !== $siteguard_config->get( 'renamelogin_enable' ) ) {
+			return;
+		}
+
+		if ( '1' !== $siteguard_config->get( 'rescue_enable' ) ) {
+			return;
+		}
+		if ( ! isset( $_GET['siteguard_rescue'] ) || '1' !== (string) $_GET['siteguard_rescue'] ) {
+			return;
+		}
+
+		if ( $this->current_rescue_count() >= 3 ) {
+			$this->fixed_delay();
+			status_header( 429 );
+			nocache_headers();
+			$this->render_rescue_message( esc_html__( 'Request limit reached. Please try again later.', 'siteguard' ) );
+			exit;
+		}
+
+		if ( 'POST' === $_SERVER['REQUEST_METHOD'] ) {
+			$this->increment_rescue_counter();
+			$this->process_rescue_post();
+			exit;
+		}
+		$this->render_rescue_form();
+		exit;
+	}
+
+	private function rescue_rate_key( $ip ) {
+		return 'sg_rescue_count_' . md5( (string) $ip ); }
+	private function increment_rescue_counter() {
+		$ip  = $this->get_ip();
+		$key = $this->rescue_rate_key( $ip );
+		$cnt = (int) get_transient( $key );
+		++$cnt;
+		set_transient( $key, $cnt, HOUR_IN_SECONDS );
+		return $cnt;
+	}
+	private function current_rescue_count() {
+		$ip  = $this->get_ip();
+		$key = $this->rescue_rate_key( $ip );
+		return (int) get_transient( $key );
+	}
+
+	private function render_rescue_form( $errors = array(), $email_value = '' ) {
+		$captcha  = new SiteGuardReallySimpleCaptcha();
+		$language = get_bloginfo( 'language' );
+		( strpos( $language, 'ja' ) === 0 ) ? $captcha->set_lang_mode( 'jp' ) : $captcha->set_lang_mode( 'en' );
+		$prefix = siteguard_rand();
+		$word   = $captcha->generate_random_word();
+		$captcha->generate_image( $prefix, $word );
+
+		$action = esc_url( add_query_arg( 'siteguard_rescue', '1', site_url( '/' ) ) );
+		$imgsrc = esc_url( WP_CONTENT_URL . '/siteguard/' . $prefix . '.png' );
+
+		nocache_headers();
+		echo '<!DOCTYPE html><html><head><meta charset="' . esc_attr( get_bloginfo( 'charset' ) ) . '">';
+		echo '<meta name="robots" content="noindex,nofollow" />';
+		echo '<title>' . esc_html__( 'Login URL Rescue', 'siteguard' ) . '</title>';
+		echo '</head><body>';
+		echo '<h1>' . esc_html__( 'Login URL Rescue', 'siteguard' ) . '</h1>';
+
+		if ( ! empty( $errors ) ) {
+			echo '<div role="alert" style="color:#b00;">';
+			foreach ( (array) $errors as $e ) {
+				echo '<p>' . esc_html( $e ) . '</p>';
+			}
+			echo '</div>';
+		}
+
+		echo '<form method="post" action="' . $action . '">';
+		wp_nonce_field( 'siteguard_rescue', 'siteguard_rescue_nonce' );
+
+		echo '<p><label>' . esc_html__( 'Administrator email address', 'siteguard' ) . '<br />';
+		echo '<input type="email" name="siteguard_rescue_email" value="' . esc_attr( $email_value ) . '" required style="min-width:280px;" />';
+		echo '</label></p>';
+
+		echo '<p><img src="' . $imgsrc . '" alt="CAPTCHA" /></p>';
+		echo '<p><label>' . esc_html__( 'Enter the characters shown above', 'siteguard' ) . '<br />';
+		echo '<input type="text" name="siteguard_captcha" value="" size="10" required />';
+		echo '</label></p>';
+		echo '<input type="hidden" name="siteguard_captcha_prefix" value="' . esc_attr( $prefix ) . '" />';
+
+		echo '<p><button type="submit">' . esc_html__( 'Send email', 'siteguard' ) . '</button></p>';
+		echo '</form>';
+
+		echo '</body></html>';
+	}
+
+	private function uniform_delay( $start_ts_ms, $min_ms = 1800, $max_ms = 3200 ) {
+		$target  = (int) wp_rand( $min_ms, $max_ms );
+		$elapsed = (int) ( ( microtime( true ) * 1000 ) - $start_ts_ms );
+		$remain  = $target - $elapsed;
+		if ( $remain > 0 ) {
+			usleep( $remain * 1000 );
+		}
+	}
+	private function fixed_delay( $min_ms = 1800, $max_ms = 3200 ) {
+		$target = (int) wp_rand( $min_ms, $max_ms );
+		if ( $target > 0 ) {
+			usleep( $target * 1000 );
+		}
+	}
+
+	private function process_rescue_post() {
+		$start = (int) round( microtime( true ) * 1000 );
+
+		if ( ! isset( $_POST['siteguard_rescue_nonce'] ) || ! wp_verify_nonce( $_POST['siteguard_rescue_nonce'], 'siteguard_rescue' ) ) {
+			status_header( 400 );
+			$this->uniform_delay( $start );
+			$this->render_rescue_form( array( esc_html__( 'Invalid request.', 'siteguard' ) ), isset( $_POST['siteguard_rescue_email'] ) ? sanitize_email( $_POST['siteguard_rescue_email'] ) : '' );
+			return;
+		}
+
+		email_exists( 'dummy@example.com' );
+
+		$email = isset( $_POST['siteguard_rescue_email'] ) ? sanitize_email( $_POST['siteguard_rescue_email'] ) : '';
+		$cap   = isset( $_POST['siteguard_captcha'] ) ? sanitize_text_field( $_POST['siteguard_captcha'] ) : '';
+		$pref  = isset( $_POST['siteguard_captcha_prefix'] ) ? sanitize_text_field( $_POST['siteguard_captcha_prefix'] ) : '';
+
+		$errors = array();
+		if ( empty( $email ) || ! is_email( $email ) ) {
+			$errors[] = esc_html__( 'Please enter a valid email address.', 'siteguard' );
+		}
+
+		$captcha       = new SiteGuardReallySimpleCaptcha();
+		$valid_captcha = ( $pref !== '' && $cap !== '' && $captcha->check( $pref, $cap, true ) );
+		if ( ! $valid_captcha ) {
+			$errors[] = esc_html__( 'Invalid CAPTCHA.', 'siteguard' );
+		}
+
+		if ( ! empty( $errors ) ) {
+			$this->uniform_delay( $start );
+			$this->render_rescue_form( $errors, $email );
+			return;
+		}
+
+		$user = get_user_by( 'email', $email );
+		if ( $user && user_can( $user, 'manage_options' ) ) {
+			$url     = $this->get_login_url();
+			$subject = esc_html__( 'WordPress: Login URL Rescue', 'siteguard' );
+			$body    = sprintf(
+				esc_html__( "You requested the login URL.\n\nURL: %s\n\nIf you did not request this, you can ignore this email.\n\n--\nSiteGuard WP Plugin", 'siteguard' ),
+				$url
+			);
+			@wp_mail( $email, $subject, $body );
+		}
+
+		nocache_headers();
+		$this->uniform_delay( $start );
+		$this->render_rescue_message( esc_html__( 'An email has been sent if the address exists.', 'siteguard' ) );
+	}
+
+	private function render_rescue_message( $message ) {
+		echo '<!DOCTYPE html><html><head><meta charset="' . esc_attr( get_bloginfo( 'charset' ) ) . '">';
+		echo '<meta name="robots" content="noindex,nofollow" />';
+		echo '<title>' . esc_html__( 'Login URL Rescue', 'siteguard' ) . '</title>';
+		echo '</head><body>';
+		echo '<h1>' . esc_html__( 'Login URL Rescue', 'siteguard' ) . '</h1>';
+		echo '<p>' . esc_html( $message ) . '</p>';
+		echo '</body></html>';
+	}
+
+	private function get_login_url() {
+		global $siteguard_config;
+		if ( '0' === $siteguard_config->get( 'renamelogin_enable' ) ) {
+			return rtrim( site_url(), '/' ) . '/wp-login.php';
+		}
+		if ( $this->is_stub_mode() ) {
+			return $this->stub_url(); }
+		return rtrim( site_url(), '/' ) . '/' . $this->slug();
+	}
+
 	function set_404() {
 		global $wp_query;
 		status_header( 404 );
 		$wp_query->set_404();
 		if ( ( ( $template = get_404_template() ) || ( $template = get_index_template() ) )
-		&& ( $template = apply_filters( 'template_include', $template ) ) ) {
+			&& ( $template = apply_filters( 'template_include', $template ) ) ) {
 			include $template;
 		}
 		die;
 	}
+
 	function send_notify() {
-		global $siteguard_config;
-		$subject = esc_html__( 'WordPress: Login page URL was changed', 'siteguard' );
-		$body    = sprintf( esc_html__( "Please bookmark following of the new login URL.\n\n%s\n\n--\nSiteGuard WP Plugin", 'siteguard' ), site_url() . '/' . $siteguard_config->get( 'renamelogin_path' ) );
+			$subject = esc_html__( 'WordPress: Login page URL changed', 'siteguard' );
+			$body    = sprintf( esc_html__( "Please bookmark the new login URL.\n\n%s\n\n--\nSiteGuard WP Plugin", 'siteguard' ), $this->get_login_url() );
 
 		$user_query = new WP_User_Query( array( 'role' => 'Administrator' ) );
 		if ( ! empty( $user_query->results ) ) {
@@ -188,6 +548,7 @@ class SiteGuard_RenameLogin extends SiteGuard_Base {
 			}
 		}
 	}
+
 	function handler_stop_redirect( $scheme ) {
 		global $siteguard_config;
 		$redirect_enable = $siteguard_config->get( 'redirect_enable' );
@@ -199,12 +560,13 @@ class SiteGuard_RenameLogin extends SiteGuard_Base {
 			exit;
 		}
 	}
+
 	function handler_plugins_loaded() {
 		if ( ! isset( $_SERVER['REQUEST_URI'] ) ) {
 			return;
 		}
-		$request = parse_url( $_SERVER['REQUEST_URI'] );
-		$denied_slugs = array( 'wp-register' );
+		$request               = parse_url( $_SERVER['REQUEST_URI'] );
+		$denied_slugs          = array( 'wp-register', 'wp-signup', 'wp-activate' );
 		$denied_slugs_to_regex = implode( '|', $denied_slugs );
 
 		$is_denied = false;
@@ -213,6 +575,59 @@ class SiteGuard_RenameLogin extends SiteGuard_Base {
 		}
 		if ( $is_denied && ! is_admin() ) {
 			$this->denied_login = true;
+			// In stub mode, .htaccess rules are absent; block signup/activate directly.
+			if ( $this->is_stub_mode() ) {
+				status_header( 404 );
+				nocache_headers();
+				exit;
+			}
+		}
+	}
+
+	public function filter_logout_url( $logout_url, $redirect ) {
+		global $siteguard_config;
+		if ( '1' !== $siteguard_config->get( 'renamelogin_enable' ) ) {
+			return $logout_url;
+		}
+		$base = $this->get_login_url();
+
+		$parts = wp_parse_url( $logout_url );
+		$q     = array();
+		if ( isset( $parts['query'] ) ) {
+			parse_str( $parts['query'], $q );
+		}
+		$q['action'] = 'logout';
+		if ( ! empty( $redirect ) ) {
+			$q['redirect_to'] = $redirect;
+		}
+		return add_query_arg( $q, $base );
+	}
+
+	public function rewrite_adminbar_logout( $wp_admin_bar ) {
+		if ( ! is_user_logged_in() ) {
+			return; }
+		if ( ! is_object( $wp_admin_bar ) ) {
+			return; }
+		foreach ( array( 'logout', 'log-out' ) as $id ) {
+			$node = $wp_admin_bar->get_node( $id );
+			if ( ! $node || empty( $node->href ) ) {
+				continue; }
+			$new = $this->filter_logout_url( $node->href, '' );
+			if ( $new && $new !== $node->href ) {
+				$node->href = $new;
+				$wp_admin_bar->add_node( $node );
+			}
+		}
+	}
+
+	public function maybe_notice_stub_failed() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return; }
+		if ( get_transient( self::STUB_WRITE_FAIL_TRANSIENT ) ) {
+			echo '<div class="notice notice-warning"><p>';
+			echo esc_html__( 'SiteGuard: Could not create the required login file. Please check file permissions or contact your hosting provider.', 'siteguard' );
+			echo '</p></div>';
+			delete_transient( self::STUB_WRITE_FAIL_TRANSIENT );
 		}
 	}
 }

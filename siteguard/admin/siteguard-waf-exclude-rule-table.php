@@ -17,7 +17,6 @@ class SiteGuard_WAF_Exclude_Rule_Table extends WP_List_Table {
 				'ajax'     => false,    // does this table support ajax?
 			)
 		);
-
 	}
 
 	function column_default( $item, $column_name ) {

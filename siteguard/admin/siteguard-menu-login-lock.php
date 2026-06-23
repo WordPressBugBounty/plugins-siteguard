@@ -47,7 +47,7 @@ class SiteGuard_Menu_Login_Lock extends SiteGuard_Base {
 				$error = true;
 			}
 			if ( ( false === $error )
-			  && ( ( false === $this->is_switch_value( $_POST[ self::OPT_NAME_ENABLE ] ) )
+				&& ( ( false === $this->is_switch_value( $_POST[ self::OPT_NAME_ENABLE ] ) )
 				|| ( false === $this->is_interval_value( $_POST[ self::OPT_NAME_INTERVAL ] ) )
 				|| ( false === $this->is_threshold_value( $_POST[ self::OPT_NAME_THRESHOLD ] ) )
 				|| ( false === $this->is_locksec_value( $_POST[ self::OPT_NAME_LOCKSEC ] ) ) ) ) {
@@ -75,14 +75,14 @@ class SiteGuard_Menu_Login_Lock extends SiteGuard_Base {
 		echo '<div class="wrap">';
 		echo '<img src="' . SITEGUARD_URL_PATH . 'images/sg_wp_plugin_logo_40.png" alt="SiteGuard Logo" />';
 		echo '<h2>' . esc_html__( 'Login Lock', 'siteguard' ) . '</h2>';
+		$documentation_link = '<a href="' . esc_url( __( 'https://www.jp-secure.com/siteguard_wp_plugin_en/howto/login_lock/', 'siteguard' ) ) . '" target="_blank">' . esc_html__( 'online documentation', 'siteguard' ) . '</a>';
 		echo '<div class="siteguard-description">'
-		. esc_html__( 'You can find docs about this function on ', 'siteguard' )
-		. '<a href="' . esc_url( __( 'https://www.jp-secure.com/siteguard_wp_plugin_en/howto/login_lock/', 'siteguard' ) )
-		. '" target="_blank">'
-		. esc_html__( 'here', 'siteguard' )
-		. '</a>'
-		. esc_html__( '.', 'siteguard' )
-		. '</div>';
+			. sprintf(
+				/* translators: %1$s: Link to the online documentation. */
+				esc_html__( 'See the %1$s.', 'siteguard' ),
+				$documentation_link
+			)
+			. '</div>';
 		?>
 		<form name="form1" method="post" action="">
 		<table class="form-table">
@@ -145,7 +145,7 @@ class SiteGuard_Menu_Login_Lock extends SiteGuard_Base {
 		</tr>
 		</table>
 		<div class="siteguard-description">
-		<?php esc_html_e( 'It is the function to decrease the vulnerability against an illegal login attempt attack such as a brute force attack or a password list attack. Especially, it is the function to prevent an automated attack. The connection source IP address the number of login failure of which reaches the specified number within the specified period is blocked for the specified time. Each user account is not locked.', 'siteguard' ); ?>
+			<?php esc_html_e( 'Reduces the risk of brute-force and password list attacks. If an IP address reaches the specified number of failed login attempts within the selected interval, it is locked for the selected time. User accounts are not locked.', 'siteguard' ); ?>
 		</div>
 		<hr />
 		<input type="hidden" name="update" value="Y">
