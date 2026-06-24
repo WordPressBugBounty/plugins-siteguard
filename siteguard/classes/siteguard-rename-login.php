@@ -197,22 +197,17 @@ class SiteGuard_RenameLogin extends SiteGuard_Base {
 		$req_path = preg_replace( '/[\s.\x00-\x1f\x7f-\xff]+$/', '', $req_path );
 		$req_path = rtrim( $req_path, '/' );
 
-		// Avoid site_url() because handler_site_url replaces wp-login.php with the renamed slug.
-		// get_option('siteurl') returns the raw value before any filtering.
-		$siteurl = (string) get_option( 'siteurl' );
-
-		// wp-register.php is a legacy entry that WordPress core redirects to
-		// wp-login.php?action=register; the URL build path also goes through
-		// handler_site_url so the slug leaks. Block both filenames here.
-		$blocked = array( '/wp-login.php', '/wp-register.php' );
-		foreach ( $blocked as $rel ) {
-			$expected = rtrim( (string) parse_url( $siteurl . $rel, PHP_URL_PATH ), '/' );
-			// Case-insensitive to also block WP-LOGIN.PHP and other case variants.
-			if ( 0 === strcasecmp( $expected, $req_path ) || 0 === strcasecmp( $rel, $req_path ) ) {
-				status_header( 404 );
-				nocache_headers();
-				exit;
-			}
+		// Match by basename to catch any path containing wp-login.php / wp-register.php,
+		// including patterns like /abc/wp-login.php, //abc/wp-login.php, /foo//wp-login.php.
+		// WordPress core canonicalizes these to wp-login.php during URL resolution, and
+		// handler_site_url then leaks the renamed slug via wp_redirect. There is no
+		// legitimate WordPress URL whose basename is wp-login.php or wp-register.php
+		// other than the actual login script itself, so exact-basename match is safe.
+		$base = strtolower( basename( $req_path ) );
+		if ( 'wp-login.php' === $base || 'wp-register.php' === $base ) {
+			status_header( 404 );
+			nocache_headers();
+			exit;
 		}
 	}
 
@@ -220,11 +215,13 @@ class SiteGuard_RenameLogin extends SiteGuard_Base {
 		$link     = isset( $_SERVER['REQUEST_URI'] ) ? sanitize_url( $_SERVER['REQUEST_URI'] ) : '';
 		$link     = preg_replace( '#^/+#', '/', $link );
 		$req_path = (string) parse_url( $link, PHP_URL_PATH );
+		$req_path = preg_replace( '#/+#', '/', $req_path );
 		$req_path = urldecode( $req_path );
 		$req_path = preg_replace( '/[\s.\x00-\x1f\x7f-\xff]+$/', '', $req_path );
 		$req_path = rtrim( $req_path, '/' );
 
-		if ( 0 === strcasecmp( '/wp-login.php', $req_path ) ) {
+		// Match by basename — see guard_wp_login_direct_access() for rationale.
+		if ( 'wp-login.php' === strtolower( basename( $req_path ) ) ) {
 			$this->set_404();
 		}
 	}
