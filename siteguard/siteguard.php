@@ -7,7 +7,7 @@ Author: JP-Secure
 Author URI: https://www.eg-secure.co.jp/
 Text Domain: siteguard
 Domain Path: /languages/
-Version: 1.8.2
+Version: 1.8.3
 */
 
 /*
@@ -271,26 +271,11 @@ class SiteGuard extends SiteGuard_Base {
 			}
 		}
 		if ( version_compare( $old_version, '1.8.0' ) < 0 ) {
-			SiteGuard_Htaccess::clear_settings( $siteguard_admin_filter->get_mark() );
-			SiteGuard_Htaccess::clear_settings( $siteguard_xmlrpc->get_mark() );
-			// 1.7.x left .htaccess blocks for Rename Login and WAF Tuning Support
-			// that 1.8.x no longer maintains in the same form. If we leave the old
-			// blocks in place, the legacy "RewriteRule ^wp-admin 404-siteguard"
-			// (Admin Filter) and the legacy Rename Login rewrite can persist and
-			// lock administrators out of /wp-admin/. Clear them here so the new
-			// 1.8.x logic owns the file.
-			SiteGuard_Htaccess::clear_settings( SiteGuard_RenameLogin::get_mark() );
-			SiteGuard_Htaccess::clear_settings( SiteGuard_WAF_Exclude_Rule::get_mark() );
-			// Re-enable Rename Login in the mode appropriate for the current
-			// environment (.htaccess on Apache, stub file on Nginx / when
-			// .htaccess is unusable). feature_on() handles both paths.
-			if ( '1' === $siteguard_config->get( 'renamelogin_enable' ) && isset( $siteguard_rename_login ) ) {
-				$siteguard_rename_login->feature_off();
-				if ( ! $siteguard_rename_login->feature_on() ) {
-					$siteguard_config->set( 'renamelogin_enable', '0' );
-					$siteguard_config->update();
-				}
-			}
+			// Legacy Nginx-exposure cleanup and the rescue_enable default. These
+			// are unrelated to the /wp-admin/ lockout and ran when the install
+			// first reached 1.8.0, so they stay gated on < 1.8.0. The Admin
+			// Filter / XML-RPC .htaccess blocks (which cause the lockout) are
+			// cleared in the < 1.8.3 block below.
 			if ( '' === $siteguard_config->get( 'rescue_enable' ) ) {
 				$siteguard_config->set( 'rescue_enable', '1' );
 				$siteguard_config->update();
@@ -348,6 +333,24 @@ class SiteGuard extends SiteGuard_Base {
 					}
 				}
 			}
+		}
+		if ( version_compare( $old_version, '1.8.3' ) < 0 ) {
+			// Admin Page IP Filter and XML-RPC protection moved from .htaccess
+			// to PHP in 1.8.x, leaving their 1.7.x .htaccess blocks orphaned.
+			// The Admin Filter block ("RewriteRule ^wp-admin 404-siteguard")
+			// blocks /wp-admin/ at the Apache layer and can lock administrators
+			// out. clear_settings() is idempotent (a no-op when the mark is
+			// absent), so gate this on the fix release (< 1.8.3) rather than
+			// < 1.8.0: that also recovers the rare install whose stored version
+			// already advanced past 1.8.0 while the block survived (e.g. the
+			// .htaccess was briefly unwritable during the 1.8.0 upgrade).
+			//
+			// Rename Login and WAF Tuning Support still use .htaccess in 1.8.x
+			// with the same mark and block format as 1.7.x, so their blocks are
+			// the current, valid mechanism — they are intentionally NOT touched
+			// here (clearing WAF without a rebuild would drop working rules).
+			SiteGuard_Htaccess::clear_settings( $siteguard_admin_filter->get_mark() );
+			SiteGuard_Htaccess::clear_settings( $siteguard_xmlrpc->get_mark() );
 		}
 		if ( $upgrade_ok && SITEGUARD_VERSION !== $old_version ) {
 			$siteguard_config->set( 'version', SITEGUARD_VERSION );

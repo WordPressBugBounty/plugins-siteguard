@@ -4,7 +4,7 @@ Donate link: -
 Tags: security, login lock, login alert, captcha, pingback
 Requires at least: 6.0
 Tested up to: 7.0
-Stable tag: 1.8.2
+Stable tag: 1.8.3
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -66,6 +66,10 @@ This plugin is translated by the community. We appreciate your help with transla
 For FAQs, see the [English](https://www.jp-secure.com/siteguard_wp_plugin_en/faq.html) or [Japanese](https://www.jp-secure.com/siteguard_wp_plugin/faq.html) documentation.
 
 == Changelog ==
+
+= 1.8.3 =
+
+* Fixed an issue where the cleanup of legacy .htaccess rules (which could lock administrators out of /wp-admin/) did not run on sites that had already updated to 1.8.0 or 1.8.1.
 
 = 1.8.2 =
 
