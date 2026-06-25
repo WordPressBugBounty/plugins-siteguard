@@ -2,9 +2,9 @@
 # This file is distributed under the same license as the SiteGuard WP Plugin package.
 msgid ""
 msgstr ""
-"Project-Id-Version: SiteGuard WP Plugin 1.8.1\n"
+"Project-Id-Version: SiteGuard WP Plugin 1.8.2\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/siteguard\n"
-"POT-Creation-Date: 2026-06-24 02:55:50+00:00\n"
+"POT-Creation-Date: 2026-06-25 04:21:45+00:00\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -319,7 +319,7 @@ msgstr ""
 msgid "Dashboard"
 msgstr ""
 
-#. #-#-#-#-#  siteguard.pot (SiteGuard WP Plugin 1.8.1)  #-#-#-#-#
+#. #-#-#-#-#  siteguard.pot (SiteGuard WP Plugin 1.8.2)  #-#-#-#-#
 #. Plugin URI of the plugin/theme
 #: admin/siteguard-menu-dashboard.php:34
 msgid "https://www.jp-secure.com/siteguard_wp_plugin_en/"
@@ -1073,19 +1073,19 @@ msgstr ""
 msgid "ERROR: Syntax Error in Signature"
 msgstr ""
 
-#: siteguard.php:188
+#: siteguard.php:191
 msgid "The login page URL has been changed."
 msgstr ""
 
-#: siteguard.php:191
+#: siteguard.php:194
 msgid "Please bookmark the %1$s. You can change this setting %2$s."
 msgstr ""
 
-#: siteguard.php:193
+#: siteguard.php:196
 msgid "new login URL"
 msgstr ""
 
-#: siteguard.php:194
+#: siteguard.php:197
 msgid "here"
 msgstr ""
 

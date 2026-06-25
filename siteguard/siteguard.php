@@ -7,7 +7,7 @@ Author: JP-Secure
 Author URI: https://www.eg-secure.co.jp/
 Text Domain: siteguard
 Domain Path: /languages/
-Version: 1.8.1
+Version: 1.8.2
 */
 
 /*
@@ -138,11 +138,14 @@ class SiteGuard extends SiteGuard_Base {
 		global $siteguard_config;
 		add_action( 'plugins_loaded', array( $this, 'plugins_loaded' ) );
 		$this->htaccess_check();
+		// upgrade() must run on every request, not only admin_init, so that
+		// upgrades from 1.7.x can clean up legacy .htaccess blocks even when
+		// /wp-admin/ would otherwise be locked out by those very rules.
+		add_action( 'init', array( $this, 'upgrade' ), 0 );
 		if ( is_admin() ) {
 			include 'admin/siteguard-menu-login-history.php';
 			$this->menu_init = new SiteGuard_Menu_Init();
 			add_action( 'init', array( $this, 'set_cookie' ) );
-			add_action( 'admin_init', array( $this, 'upgrade' ) );
 			if ( '0' === $siteguard_config->get( 'show_admin_notices' ) && '1' === $siteguard_config->get( 'renamelogin_enable' ) ) {
 				add_action( 'admin_notices', array( $this, 'admin_notices' ) );
 				$siteguard_config->set( 'show_admin_notices', '1' );
@@ -270,6 +273,24 @@ class SiteGuard extends SiteGuard_Base {
 		if ( version_compare( $old_version, '1.8.0' ) < 0 ) {
 			SiteGuard_Htaccess::clear_settings( $siteguard_admin_filter->get_mark() );
 			SiteGuard_Htaccess::clear_settings( $siteguard_xmlrpc->get_mark() );
+			// 1.7.x left .htaccess blocks for Rename Login and WAF Tuning Support
+			// that 1.8.x no longer maintains in the same form. If we leave the old
+			// blocks in place, the legacy "RewriteRule ^wp-admin 404-siteguard"
+			// (Admin Filter) and the legacy Rename Login rewrite can persist and
+			// lock administrators out of /wp-admin/. Clear them here so the new
+			// 1.8.x logic owns the file.
+			SiteGuard_Htaccess::clear_settings( SiteGuard_RenameLogin::get_mark() );
+			SiteGuard_Htaccess::clear_settings( SiteGuard_WAF_Exclude_Rule::get_mark() );
+			// Re-enable Rename Login in the mode appropriate for the current
+			// environment (.htaccess on Apache, stub file on Nginx / when
+			// .htaccess is unusable). feature_on() handles both paths.
+			if ( '1' === $siteguard_config->get( 'renamelogin_enable' ) && isset( $siteguard_rename_login ) ) {
+				$siteguard_rename_login->feature_off();
+				if ( ! $siteguard_rename_login->feature_on() ) {
+					$siteguard_config->set( 'renamelogin_enable', '0' );
+					$siteguard_config->update();
+				}
+			}
 			if ( '' === $siteguard_config->get( 'rescue_enable' ) ) {
 				$siteguard_config->set( 'rescue_enable', '1' );
 				$siteguard_config->update();
