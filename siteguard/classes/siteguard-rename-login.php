@@ -177,36 +177,53 @@ class SiteGuard_RenameLogin extends SiteGuard_Base {
 	}
 
 	/**
-	 * Normalize REQUEST_URI to the login "stem": the basename with any extension
-	 * removed, lowercased. Returns '' when REQUEST_URI is unavailable.
+	 * Whether REQUEST_URI targets a default login entry point (wp-login /
+	 * wp-register) rather than the configured renamed slug.
 	 *
-	 * Matching by stem (rather than the exact "wp-login.php" basename) is required
-	 * because Apache MultiViews / content negotiation serves wp-login.php for an
-	 * extensionless request such as /wp-login or /wp-login/ (a trailing slash
-	 * becomes PATH_INFO). In that case REQUEST_URI carries no ".php", so an exact
-	 * basename match misses it and the renamed-login protection is bypassed. This
-	 * was caught by the broad substring match used up to 1.7.x; the 1.8.x switch
-	 * to exact-basename matching (to defeat Referer spoofing) narrowed it away.
+	 * Every path segment is reduced to its "stem" (lowercased, any extension
+	 * dropped) and compared against wp-login / wp-register. Checking every
+	 * segment — not just the basename — is required because Apache MultiViews /
+	 * content negotiation serves wp-login.php for an extensionless request, and
+	 * with AcceptPathInfo anything after it becomes PATH_INFO:
+	 *   /wp-login            -> wp-login.php
+	 *   /wp-login/           -> wp-login.php (PATH_INFO "/")
+	 *   /wp-login/anything   -> wp-login.php (PATH_INFO "/anything")  <-- basename is "anything"
+	 *   /wp-login.php/x      -> wp-login.php (PATH_INFO "/x")
+	 * A basename-only check misses the PATH_INFO variants (the basename is the
+	 * trailing segment). Scanning every segment also covers the nested forms that
+	 * WordPress core canonicalizes to wp-login.php (e.g. /abc/wp-login.php,
+	 * //wp-login.php) and subdirectory installs (/cms/wp-login/x).
+	 *
+	 * The configured slug is exempt so a site that renamed its login to a reserved
+	 * word (e.g. "wp-register", which the settings screen still permits because
+	 * wp-register.php does not exist) is not locked out of its own login. Renamed
+	 * slugs only contain [a-zA-Z0-9_-] (no dot), so the extension stripping never
+	 * collides with a slug.
 	 */
-	private function request_login_stem() {
+	private function targets_default_login() {
+		$slug = strtolower( $this->slug() );
 		$link = isset( $_SERVER['REQUEST_URI'] ) ? sanitize_url( $_SERVER['REQUEST_URI'] ) : '';
-		// Collapse leading consecutive slashes before parse_url, otherwise //wp-login.php
-		// is parsed as host=wp-login.php with NULL path and the comparison would pass through.
-		$link     = preg_replace( '#^/+#', '/', $link );
-		$req_path = (string) parse_url( $link, PHP_URL_PATH );
-		$req_path = preg_replace( '#/+#', '/', $req_path );
-		// URL-decode and strip trailing whitespace, control characters, dots, and non-ASCII bytes
-		// so that variants like wp-login.php. or wp-login.php%C2%A0 (NBSP) are caught after
-		// WordPress core URL normalization would otherwise treat them as wp-login.php.
-		$req_path = urldecode( $req_path );
-		$req_path = preg_replace( '/[\s.\x00-\x1f\x7f-\xff]+$/', '', $req_path );
-		$req_path = rtrim( $req_path, '/' );
-		$base     = strtolower( basename( $req_path ) );
-		// Drop everything from the first dot so "wp-login.php", "wp-login.html"
-		// (another negotiable variant) and the extensionless "wp-login" all reduce
-		// to the same stem. Renamed slugs only contain [a-zA-Z0-9_-] (no dot), so a
-		// slug never collides with the extension-stripping here.
-		return preg_replace( '/\..*$/', '', $base );
+		// Collapse leading/duplicate slashes before parse_url, otherwise //wp-login.php
+		// is parsed as host=wp-login.php with a NULL path and would slip through.
+		$link = preg_replace( '#^/+#', '/', $link );
+		$path = (string) parse_url( $link, PHP_URL_PATH );
+		$path = preg_replace( '#/+#', '/', $path );
+		$path = urldecode( $path );
+		foreach ( explode( '/', $path ) as $seg ) {
+			if ( '' === $seg ) {
+				continue;
+			}
+			$seg = strtolower( $seg );
+			// Strip trailing whitespace, control characters and non-ASCII bytes so
+			// variants like "wp-login.php " or "wp-login.php%C2%A0" (NBSP) are caught
+			// after WordPress core URL normalization would treat them as wp-login.php.
+			$seg  = preg_replace( '/[\s\x00-\x1f\x7f-\xff]+$/', '', $seg );
+			$stem = preg_replace( '/\..*$/', '', $seg );
+			if ( ( 'wp-login' === $stem || 'wp-register' === $stem ) && $stem !== $slug ) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**
@@ -217,32 +234,36 @@ class SiteGuard_RenameLogin extends SiteGuard_Base {
 	 * core URL canonicalization can leak the renamed slug via wp_redirect.
 	 */
 	public function guard_wp_login_direct_access() {
-		$stem = $this->request_login_stem();
-		// Catch any path whose basename stem is wp-login / wp-register, including
-		// /abc/wp-login.php, //abc/wp-login.php, and the MultiViews-served
-		// extensionless /wp-login or /wp-login/. The only legitimate request with
-		// such a stem is the site's own renamed login when it was named after one
-		// of these reserved words (e.g. a slug of "wp-register", which the settings
-		// screen still permits because wp-register.php does not exist), so allow
-		// the request through when the stem matches the configured slug.
-		if ( 'wp-login' === $stem || 'wp-register' === $stem ) {
-			if ( $stem !== strtolower( $this->slug() ) ) {
-				status_header( 404 );
-				nocache_headers();
-				exit;
-			}
+		if ( ! $this->targets_default_login() ) {
+			return;
 		}
+		// When wp-login.php is the executing script (a direct hit, or MultiViews
+		// content negotiation serving it for /wp-login, /wp-login/x, etc.),
+		// login_init fires and handler_login_init() renders the WordPress theme
+		// 404 via set_404(). Defer to it so the visitor gets the themed 404 page
+		// instead of a bare browser 404.
+		//
+		// Only the index.php fallback path is handled here with a bare 404 + exit:
+		// e.g. //wp-login.php on a subdirectory install, where wp-login.php does
+		// NOT execute (SCRIPT_NAME is index.php) and login_init never fires. That
+		// case must stop now, before WordPress core canonicalizes the URL and
+		// leaks the renamed slug via wp_redirect, and the main query is not yet
+		// set up to render a theme template safely.
+		$script = isset( $_SERVER['SCRIPT_NAME'] ) ? strtolower( basename( $_SERVER['SCRIPT_NAME'] ) ) : '';
+		if ( 'wp-login.php' === $script ) {
+			return;
+		}
+		status_header( 404 );
+		nocache_headers();
+		exit;
 	}
 
 	function handler_login_init() {
-		$stem = $this->request_login_stem();
-		// See guard_wp_login_direct_access() for rationale, including the renamed
-		// slug exemption that keeps a "wp-login"/"wp-register" slug from 404ing
-		// the site's own login page.
-		if ( 'wp-login' === $stem || 'wp-register' === $stem ) {
-			if ( $stem !== strtolower( $this->slug() ) ) {
-				$this->set_404();
-			}
+		// See targets_default_login() for rationale, including the renamed slug
+		// exemption that keeps a "wp-login"/"wp-register" slug from 404ing the
+		// site's own login page.
+		if ( $this->targets_default_login() ) {
+			$this->set_404();
 		}
 	}
 

@@ -4,7 +4,7 @@ Donate link: -
 Tags: security, login lock, login alert, captcha, pingback
 Requires at least: 6.0
 Tested up to: 7.0
-Stable tag: 1.8.4
+Stable tag: 1.8.5
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -67,9 +67,17 @@ For FAQs, see the [English](https://www.jp-secure.com/siteguard_wp_plugin_en/faq
 
 == Changelog ==
 
+= 1.8.5 =
+
+* Fixed a security issue affecting the login URL protection on some server configurations.
+
+Special thanks to goto5656 for the report.
+
 = 1.8.4 =
 
 * Fixed a security issue affecting the login URL protection on some server configurations.
+
+Special thanks to goto5656 for the report.
 
 = 1.8.3 =
 
