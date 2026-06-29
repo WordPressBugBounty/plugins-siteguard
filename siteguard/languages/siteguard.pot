@@ -2,9 +2,9 @@
 # This file is distributed under the same license as the SiteGuard WP Plugin package.
 msgid ""
 msgstr ""
-"Project-Id-Version: SiteGuard WP Plugin 1.8.5\n"
+"Project-Id-Version: SiteGuard WP Plugin 1.8.6\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/siteguard\n"
-"POT-Creation-Date: 2026-06-26 05:01:31+00:00\n"
+"POT-Creation-Date: 2026-06-29 07:26:11+00:00\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -96,7 +96,7 @@ msgid "All"
 msgstr ""
 
 #: admin/siteguard-menu-admin-filter.php:27
-#: admin/siteguard-menu-author-query.php:28 admin/siteguard-menu-captcha.php:53
+#: admin/siteguard-menu-author-query.php:57 admin/siteguard-menu-captcha.php:53
 #: admin/siteguard-menu-fail-once.php:26
 #: admin/siteguard-menu-login-alert.php:30
 #: admin/siteguard-menu-login-lock.php:55
@@ -112,12 +112,12 @@ msgid "ERROR: Invalid input value."
 msgstr ""
 
 #: admin/siteguard-menu-admin-filter.php:48
-#: admin/siteguard-menu-author-query.php:49 admin/siteguard-menu-captcha.php:70
+#: admin/siteguard-menu-author-query.php:78 admin/siteguard-menu-captcha.php:70
 #: admin/siteguard-menu-fail-once.php:41
 #: admin/siteguard-menu-login-alert.php:52
 #: admin/siteguard-menu-login-lock.php:70
 #: admin/siteguard-menu-protect-xmlrpc.php:90
-#: admin/siteguard-menu-rename-login.php:209
+#: admin/siteguard-menu-rename-login.php:276
 #: admin/siteguard-menu-same-error.php:42
 #: admin/siteguard-menu-updates-notify.php:70
 msgid "Options saved."
@@ -140,13 +140,13 @@ msgid "https://www.jp-secure.com/siteguard_wp_plugin_en/howto/admin_filter/"
 msgstr ""
 
 #: admin/siteguard-menu-admin-filter.php:66
-#: admin/siteguard-menu-author-query.php:57 admin/siteguard-menu-captcha.php:78
+#: admin/siteguard-menu-author-query.php:86 admin/siteguard-menu-captcha.php:78
 #: admin/siteguard-menu-fail-once.php:49
 #: admin/siteguard-menu-login-alert.php:60
 #: admin/siteguard-menu-login-history.php:18
 #: admin/siteguard-menu-login-lock.php:78
 #: admin/siteguard-menu-protect-xmlrpc.php:98
-#: admin/siteguard-menu-rename-login.php:215
+#: admin/siteguard-menu-rename-login.php:282
 #: admin/siteguard-menu-same-error.php:50
 #: admin/siteguard-menu-updates-notify.php:78
 #: admin/siteguard-menu-waf-tuning-support.php:242
@@ -155,13 +155,13 @@ msgstr ""
 
 #. translators: %1$s: Link to the online documentation.
 #: admin/siteguard-menu-admin-filter.php:70
-#: admin/siteguard-menu-author-query.php:61 admin/siteguard-menu-captcha.php:82
+#: admin/siteguard-menu-author-query.php:90 admin/siteguard-menu-captcha.php:82
 #: admin/siteguard-menu-fail-once.php:53
 #: admin/siteguard-menu-login-alert.php:64
 #: admin/siteguard-menu-login-history.php:22
 #: admin/siteguard-menu-login-lock.php:82
 #: admin/siteguard-menu-protect-xmlrpc.php:102
-#: admin/siteguard-menu-rename-login.php:219
+#: admin/siteguard-menu-rename-login.php:286
 #: admin/siteguard-menu-same-error.php:54
 #: admin/siteguard-menu-updates-notify.php:82
 #: admin/siteguard-menu-waf-tuning-support.php:246
@@ -169,12 +169,12 @@ msgid "See the %1$s."
 msgstr ""
 
 #: admin/siteguard-menu-admin-filter.php:82
-#: admin/siteguard-menu-author-query.php:74 admin/siteguard-menu-captcha.php:94
-#: admin/siteguard-menu-fail-once.php:65
+#: admin/siteguard-menu-author-query.php:103
+#: admin/siteguard-menu-captcha.php:94 admin/siteguard-menu-fail-once.php:65
 #: admin/siteguard-menu-login-alert.php:76
 #: admin/siteguard-menu-login-lock.php:94
 #: admin/siteguard-menu-protect-xmlrpc.php:115
-#: admin/siteguard-menu-rename-login.php:231
+#: admin/siteguard-menu-rename-login.php:298
 #: admin/siteguard-menu-same-error.php:66
 #: admin/siteguard-menu-updates-notify.php:94
 #: admin/siteguard-menu-waf-tuning-support.php:258
@@ -182,12 +182,12 @@ msgid "ON"
 msgstr ""
 
 #: admin/siteguard-menu-admin-filter.php:86
-#: admin/siteguard-menu-author-query.php:77 admin/siteguard-menu-captcha.php:97
-#: admin/siteguard-menu-fail-once.php:68
+#: admin/siteguard-menu-author-query.php:106
+#: admin/siteguard-menu-captcha.php:97 admin/siteguard-menu-fail-once.php:68
 #: admin/siteguard-menu-login-alert.php:79
 #: admin/siteguard-menu-login-lock.php:97
 #: admin/siteguard-menu-protect-xmlrpc.php:118
-#: admin/siteguard-menu-rename-login.php:234
+#: admin/siteguard-menu-rename-login.php:301
 #: admin/siteguard-menu-same-error.php:69
 #: admin/siteguard-menu-updates-notify.php:97
 #: admin/siteguard-menu-waf-tuning-support.php:261
@@ -211,50 +211,52 @@ msgid ""
 "from this protection."
 msgstr ""
 
-#: admin/siteguard-menu-author-query.php:56
+#: admin/siteguard-menu-author-query.php:85
 #: admin/siteguard-menu-dashboard.php:94 admin/siteguard-menu-init.php:115
 #: admin/siteguard-menu-init.php:116
 msgid "Block Author Query"
 msgstr ""
 
-#: admin/siteguard-menu-author-query.php:57
+#: admin/siteguard-menu-author-query.php:86
 msgid "https://www.jp-secure.com/siteguard_wp_plugin_en/howto/author_query/"
 msgstr ""
 
-#: admin/siteguard-menu-author-query.php:90
-#: admin/siteguard-menu-rename-login.php:265
+#: admin/siteguard-menu-author-query.php:120
+#: admin/siteguard-menu-rename-login.php:332
 msgid "Option"
 msgstr ""
 
-#: admin/siteguard-menu-author-query.php:93
+#: admin/siteguard-menu-author-query.php:123
 msgid "Disable REST API"
 msgstr ""
 
-#: admin/siteguard-menu-author-query.php:98
-msgid "Excluded Plugins"
+#: admin/siteguard-menu-author-query.php:127
+msgid "Excluded REST API Namespaces"
 msgstr ""
 
-#: admin/siteguard-menu-author-query.php:100
-msgid "Specify plugins to exclude. Enter one per line."
-msgstr ""
-
-#: admin/siteguard-menu-author-query.php:134
-msgid "Add Excluded Plugin"
-msgstr ""
-
-#: admin/siteguard-menu-author-query.php:135
+#: admin/siteguard-menu-author-query.php:130
 msgid ""
-"This list shows active plugins that can be excluded. Select a plugin and add "
-"it to the exclusion list."
+"Specify REST API namespaces to exclude. Enter one per line. Existing plugin-"
+"based entries are still supported."
+msgstr ""
+
+#: admin/siteguard-menu-author-query.php:162
+msgid "Add Excluded Namespace"
+msgstr ""
+
+#: admin/siteguard-menu-author-query.php:163
+msgid ""
+"This list shows REST API namespaces registered on this site. Select a "
+"namespace and add it to the exclusion list."
 msgstr ""
 
 #. translators: %1$s: Example author query.
-#: admin/siteguard-menu-author-query.php:145
+#: admin/siteguard-menu-author-query.php:173
 msgid ""
 "Prevents username leakage through author queries such as %1$s. You can also "
 "disable the REST API to prevent username leakage through REST API requests. "
-"If disabling the REST API causes plugin compatibility issues, add the "
-"affected plugins to the excluded plugins list."
+"If disabling the REST API causes compatibility issues, add the affected REST "
+"API namespaces to the exclusion list."
 msgstr ""
 
 #: admin/siteguard-menu-captcha.php:77 admin/siteguard-menu-dashboard.php:64
@@ -319,7 +321,7 @@ msgstr ""
 msgid "Dashboard"
 msgstr ""
 
-#. #-#-#-#-#  siteguard.pot (SiteGuard WP Plugin 1.8.5)  #-#-#-#-#
+#. #-#-#-#-#  siteguard.pot (SiteGuard WP Plugin 1.8.6)  #-#-#-#-#
 #. Plugin URI of the plugin/theme
 #: admin/siteguard-menu-dashboard.php:34
 msgid "https://www.jp-secure.com/siteguard_wp_plugin_en/"
@@ -346,7 +348,7 @@ msgid ""
 msgstr ""
 
 #: admin/siteguard-menu-dashboard.php:59 admin/siteguard-menu-init.php:44
-#: admin/siteguard-menu-init.php:45 admin/siteguard-menu-rename-login.php:205
+#: admin/siteguard-menu-init.php:45 admin/siteguard-menu-rename-login.php:272
 msgid "Rename Login"
 msgstr ""
 
@@ -601,58 +603,137 @@ msgid ""
 "hosting provider."
 msgstr ""
 
-#: admin/siteguard-menu-rename-login.php:168
-#: admin/siteguard-menu-rename-login.php:175
-#: admin/siteguard-menu-rename-login.php:183
+#: admin/siteguard-menu-rename-login.php:169
+#: admin/siteguard-menu-rename-login.php:177
+#: admin/siteguard-menu-rename-login.php:185
 msgid "Login URL:"
 msgstr ""
 
-#: admin/siteguard-menu-rename-login.php:170
+#: admin/siteguard-menu-rename-login.php:171
 msgid ""
 "The login URL ends with .php because this server does not support .htaccess."
 msgstr ""
 
-#: admin/siteguard-menu-rename-login.php:185
+#: admin/siteguard-menu-rename-login.php:187
 msgid "This feature is currently off."
 msgstr ""
 
-#: admin/siteguard-menu-rename-login.php:215
+#: admin/siteguard-menu-rename-login.php:205
+msgid "Reason: the server is Nginx, which does not use .htaccess."
+msgstr ""
+
+#: admin/siteguard-menu-rename-login.php:207
+msgid "Reason: the server is not Apache/LiteSpeed, so .htaccess is not used."
+msgstr ""
+
+#: admin/siteguard-menu-rename-login.php:209
+msgid ""
+"Reason: the .htaccess file (or the WordPress directory) is not writable."
+msgstr ""
+
+#: admin/siteguard-menu-rename-login.php:211
+msgid ""
+"Reason: a temporary test directory could not be created in the WordPress "
+"directory (check write permission)."
+msgstr ""
+
+#: admin/siteguard-menu-rename-login.php:213
+msgid "Reason: the temporary test files could not be written."
+msgstr ""
+
+#. translators: %s: test URL
+#: admin/siteguard-menu-rename-login.php:217
+msgid ""
+"Reason: the .htaccess file is present but the server is ignoring it (for "
+"example AllowOverride is set to None, or mod_rewrite is not enabled for this "
+"directory), so the rewrite for %s had no effect."
+msgstr ""
+
+#. translators: 1: test URL, 2: error message
+#: admin/siteguard-menu-rename-login.php:223
+msgid ""
+"Reason: the self-test request to %1$s failed (%2$s). The server may be "
+"unable to reach its own URL (loopback)."
+msgstr ""
+
+#: admin/siteguard-menu-rename-login.php:230
+msgid ""
+"It may be blocked by an access restriction such as Basic authentication or "
+"an IP restriction."
+msgstr ""
+
+#: admin/siteguard-menu-rename-login.php:232
+msgid ""
+"The test URL was not found, for example because WordPress is installed in a "
+"subdirectory so the self-test URL does not map to it, or the request is "
+"routed elsewhere."
+msgstr ""
+
+#: admin/siteguard-menu-rename-login.php:234
+msgid ""
+"The request was rate-limited or temporarily blocked. This is usually a "
+"server-side rate limit or anti-bot/access-control protection (separate from ."
+"htaccess), not a sign that .htaccess is broken. Try again after a short "
+"while."
+msgstr ""
+
+#: admin/siteguard-menu-rename-login.php:236
+msgid ""
+"The request was redirected (for example HTTP to HTTPS, or a canonical "
+"redirect)."
+msgstr ""
+
+#. translators: 1: test URL, 2: HTTP status code
+#: admin/siteguard-menu-rename-login.php:242
+msgid ""
+"Reason: the self-test request to %1$s returned HTTP %2$s instead of 200."
+msgstr ""
+
+#. translators: %s: test URL
+#: admin/siteguard-menu-rename-login.php:249
+msgid ""
+"Reason: the self-test request to %s did not return the expected result; the ."
+"htaccess rewrite did not take effect (it may be disabled by AllowOverride or "
+"overridden by another rule)."
+msgstr ""
+
+#: admin/siteguard-menu-rename-login.php:282
 msgid "https://www.jp-secure.com/siteguard_wp_plugin_en/howto/rename_login/"
 msgstr ""
 
-#: admin/siteguard-menu-rename-login.php:239
+#: admin/siteguard-menu-rename-login.php:306
 msgid ""
 "Works automatically on most servers. If activation fails, please check file "
 "permissions or contact your hosting provider."
 msgstr ""
 
-#: admin/siteguard-menu-rename-login.php:244
+#: admin/siteguard-menu-rename-login.php:311
 msgid "New Login Path"
 msgstr ""
 
-#: admin/siteguard-menu-rename-login.php:257
+#: admin/siteguard-menu-rename-login.php:324
 msgid "The actual login URL will include .php at the end."
 msgstr ""
 
-#: admin/siteguard-menu-rename-login.php:259
+#: admin/siteguard-menu-rename-login.php:326
 msgid "Letters, numbers, hyphens, and underscores only."
 msgstr ""
 
-#: admin/siteguard-menu-rename-login.php:269
+#: admin/siteguard-menu-rename-login.php:336
 msgid "Do not redirect from the admin page to the login page."
 msgstr ""
 
-#: admin/siteguard-menu-rename-login.php:273
+#: admin/siteguard-menu-rename-login.php:340
 msgid "Enable login rescue"
 msgstr ""
 
-#: admin/siteguard-menu-rename-login.php:274
+#: admin/siteguard-menu-rename-login.php:341
 msgid ""
 "Users can request the current login URL by solving a CAPTCHA. For security, "
 "a confirmation is always shown regardless of whether the address exists."
 msgstr ""
 
-#: admin/siteguard-menu-rename-login.php:281
+#: admin/siteguard-menu-rename-login.php:348
 msgid ""
 "This protects your site by changing the login page URL, making it harder for "
 "automated attacks to find it. The default URL is “login_&lt;5 random "
@@ -896,7 +977,7 @@ msgstr ""
 msgid "ERROR: Invalid CAPTCHA."
 msgstr ""
 
-#: classes/siteguard-disable-author-query.php:45
+#: classes/siteguard-disable-author-query.php:58
 msgid "The REST API on this site has been disabled."
 msgstr ""
 
@@ -926,46 +1007,46 @@ msgstr ""
 msgid "ERROR: Please log in again"
 msgstr ""
 
-#: classes/siteguard-rename-login.php:406
+#: classes/siteguard-rename-login.php:437
 msgid "Request limit reached. Please try again later."
 msgstr ""
 
-#: classes/siteguard-rename-login.php:449
-#: classes/siteguard-rename-login.php:451
-#: classes/siteguard-rename-login.php:547
-#: classes/siteguard-rename-login.php:549
+#: classes/siteguard-rename-login.php:480
+#: classes/siteguard-rename-login.php:482
+#: classes/siteguard-rename-login.php:578
+#: classes/siteguard-rename-login.php:580
 msgid "Login URL Rescue"
 msgstr ""
 
-#: classes/siteguard-rename-login.php:464
+#: classes/siteguard-rename-login.php:495
 msgid "Administrator email address"
 msgstr ""
 
-#: classes/siteguard-rename-login.php:469
+#: classes/siteguard-rename-login.php:500
 msgid "Enter the characters shown above"
 msgstr ""
 
-#: classes/siteguard-rename-login.php:474
+#: classes/siteguard-rename-login.php:505
 msgid "Send email"
 msgstr ""
 
-#: classes/siteguard-rename-login.php:501
+#: classes/siteguard-rename-login.php:532
 msgid "Invalid request."
 msgstr ""
 
-#: classes/siteguard-rename-login.php:513
+#: classes/siteguard-rename-login.php:544
 msgid "Please enter a valid email address."
 msgstr ""
 
-#: classes/siteguard-rename-login.php:519
+#: classes/siteguard-rename-login.php:550
 msgid "Invalid CAPTCHA."
 msgstr ""
 
-#: classes/siteguard-rename-login.php:531
+#: classes/siteguard-rename-login.php:562
 msgid "WordPress: Login URL Rescue"
 msgstr ""
 
-#: classes/siteguard-rename-login.php:533
+#: classes/siteguard-rename-login.php:564
 msgid ""
 "You requested the login URL.\n"
 "\n"
@@ -977,15 +1058,15 @@ msgid ""
 "SiteGuard WP Plugin"
 msgstr ""
 
-#: classes/siteguard-rename-login.php:541
+#: classes/siteguard-rename-login.php:572
 msgid "An email has been sent if the address exists."
 msgstr ""
 
-#: classes/siteguard-rename-login.php:576
+#: classes/siteguard-rename-login.php:607
 msgid "WordPress: Login page URL changed"
 msgstr ""
 
-#: classes/siteguard-rename-login.php:577
+#: classes/siteguard-rename-login.php:608
 msgid ""
 "Please bookmark the new login URL.\n"
 "\n"
@@ -995,7 +1076,7 @@ msgid ""
 "SiteGuard WP Plugin"
 msgstr ""
 
-#: classes/siteguard-rename-login.php:666
+#: classes/siteguard-rename-login.php:697
 msgid ""
 "SiteGuard: Could not create the required login file. Please check file "
 "permissions or contact your hosting provider."

@@ -4,7 +4,7 @@ Donate link: -
 Tags: security, login lock, login alert, captcha, pingback
 Requires at least: 6.0
 Tested up to: 7.0
-Stable tag: 1.8.5
+Stable tag: 1.8.6
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -66,6 +66,14 @@ This plugin is translated by the community. We appreciate your help with transla
 For FAQs, see the [English](https://www.jp-secure.com/siteguard_wp_plugin_en/faq.html) or [Japanese](https://www.jp-secure.com/siteguard_wp_plugin/faq.html) documentation.
 
 == Changelog ==
+
+= 1.8.6 =
+
+* Rename Login: when the login URL falls back to the .php (stub) form, the settings screen now explains why .htaccess could not be used.
+* Rename Login: fixed the .htaccess self-test so it works when WordPress has been given its own directory (the WordPress Address differs from the Site Address).
+* Block Author Query: the "Disable REST API" exclusion list now uses REST API namespaces instead of plugin names.
+
+Special thanks to abcdrew and miwarock777 for their contributions to this release.
 
 = 1.8.5 =
 

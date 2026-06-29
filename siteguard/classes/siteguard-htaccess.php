@@ -23,8 +23,18 @@ class SiteGuard_Htaccess extends SiteGuard_Base {
 		return is_writable( ABSPATH );
 	}
 
+	// Diagnostic reason for the most recent test_htaccess() failure, as an array
+	// like array( 'code' => 'http_status', 'url' => ..., 'status' => 403 ). An empty
+	// array means success (or not yet run). SiteGuard_RenameLogin reads this to
+	// record why it fell back to stub (.php) mode, so administrators can see the
+	// cause on the settings screen.
+	public static $last_reason = array();
+
 	static function test_htaccess() {
+		self::$last_reason = array();
 		if ( ! self::is_writable_htaccess() ) {
+			$is_nginx          = isset( $_SERVER['SERVER_SOFTWARE'] ) && false !== stripos( $_SERVER['SERVER_SOFTWARE'], 'nginx' );
+			self::$last_reason = array( 'code' => $is_nginx ? 'nginx' : 'not_writable' );
 			return false;
 		}
 
@@ -37,7 +47,15 @@ class SiteGuard_Htaccess extends SiteGuard_Base {
 		$test_dir_path    = ABSPATH . $test_dir_name;
 		$htaccess_path    = $test_dir_path . '/.htaccess';
 		$php_file_path    = $test_dir_path . '/test.php';
-		$test_url         = home_url( '/' . $test_dir_name . '/test.html' );
+		// The test directory is created under ABSPATH, which is served at the
+		// WordPress Address (siteurl), NOT necessarily the Site Address (home).
+		// On "WordPress in its own directory" installs (e.g. core in /wp, site at
+		// root) these differ, so home_url() would build a URL that does not map to
+		// the test directory and the self-test would always 404. Use the raw
+		// siteurl (get_option avoids the rename-login site_url filter) so the URL
+		// matches ABSPATH. For ordinary installs siteurl == home, so no change.
+		$base_url         = rtrim( get_option( 'siteurl' ), '/' );
+		$test_url         = $base_url . '/' . $test_dir_name . '/test.html';
 		$php_content      = '<?php echo "SUCCESS";';
 		$htaccess_content = "RewriteEngine On\nRewriteRule ^test\\.html$ test.php [L]";
 
@@ -54,25 +72,69 @@ class SiteGuard_Htaccess extends SiteGuard_Base {
 		};
 
 		if ( ! @mkdir( $test_dir_path, 0755 ) ) {
+			self::$last_reason = array( 'code' => 'mkdir' );
 			return false;
 		}
 
 		if ( false === @file_put_contents( $php_file_path, $php_content ) || false === @file_put_contents( $htaccess_path, $htaccess_content ) ) {
 			$cleanup();
+			self::$last_reason = array( 'code' => 'write' );
 			return false;
 		}
 
-		$response = wp_remote_get(
-			$test_url,
-			array(
-				'timeout'   => 10,
-				'sslverify' => apply_filters( 'https_local_ssl_verify', false ),
-			)
+		$args     = array(
+			'timeout'   => 10,
+			'sslverify' => apply_filters( 'https_local_ssl_verify', false ),
 		);
+		$response = wp_remote_get( $test_url, $args );
+
+		// On success the .htaccess rewrite turned test.html into test.php (SUCCESS).
+		if ( ! is_wp_error( $response ) && 200 === wp_remote_retrieve_response_code( $response ) && 'SUCCESS' === wp_remote_retrieve_body( $response ) ) {
+			$cleanup();
+			return true;
+		}
+
+		// The rewrite test failed. Probe test.php directly (before cleanup) to tell
+		// apart "the .htaccess was ignored" from "the test files were unreachable":
+		// if test.php itself returns SUCCESS, the directory and PHP are reachable
+		// and only the RewriteRule had no effect (AllowOverride None / mod_rewrite
+		// off). If test.php is also unreachable, the URL did not map to the test
+		// directory at all (subdirectory install, routing, or access restriction).
+		$php_url   = $base_url . '/' . $test_dir_name . '/test.php';
+		$php_probe = wp_remote_get( $php_url, $args );
+		$probe_ok  = ! is_wp_error( $php_probe ) && 200 === wp_remote_retrieve_response_code( $php_probe ) && 'SUCCESS' === wp_remote_retrieve_body( $php_probe );
 
 		$cleanup();
 
-		return ! is_wp_error( $response ) && 200 === wp_remote_retrieve_response_code( $response ) && 'SUCCESS' === wp_remote_retrieve_body( $response );
+		if ( is_wp_error( $response ) ) {
+			self::$last_reason = array(
+				'code'   => 'wp_error',
+				'url'    => $test_url,
+				'detail' => $response->get_error_message(),
+			);
+			return false;
+		}
+		if ( $probe_ok ) {
+			self::$last_reason = array(
+				'code' => 'htaccess_ignored',
+				'url'  => $test_url,
+			);
+			return false;
+		}
+		$status = wp_remote_retrieve_response_code( $response );
+		if ( 200 === $status ) {
+			self::$last_reason = array(
+				'code' => 'bad_body',
+				'url'  => $test_url,
+			);
+			return false;
+		}
+		self::$last_reason = array(
+			'code'   => 'http_status',
+			'url'    => $test_url,
+			'status' => $status,
+		);
+		return false;
 	}
 	private static function cleanup_orphaned_test_dirs() {
 		$orphans = glob( ABSPATH . 'siteguard-test-*', GLOB_ONLYDIR );

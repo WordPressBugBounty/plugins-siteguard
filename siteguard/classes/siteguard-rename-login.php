@@ -324,24 +324,55 @@ class SiteGuard_RenameLogin extends SiteGuard_Base {
 			$this->remove_stub( $this->stub_abspath() );
 		}
 
-		if ( $this->can_use_htaccess() && SiteGuard_Htaccess::test_htaccess() ) {
+		// Decide between .htaccess mode and stub (.php) mode, recording the reason
+		// when .htaccess cannot be used so the settings screen can explain why.
+		$reason = $this->htaccess_unavailable_reason();
+		if ( array() === $reason ) {
 			$data = $this->htaccess_body();
 			$mark = self::get_mark();
 			$ok   = $siteguard_htaccess->update_settings( $mark, $data );
 			if ( $ok ) {
 				$siteguard_config->set( 'renamelogin_stub', SITEGUARD_RENAME_MODE_HTACCESS );
+				$siteguard_config->set( 'renamelogin_stub_reason', array() );
 				$siteguard_config->update();
+				return true;
 			}
-			return (bool) $ok;
+			// Writing the .htaccess block failed unexpectedly; fall back to stub.
+			$reason = array( 'code' => 'not_writable' );
 		}
 
 		if ( $this->install_stub() ) {
 			$siteguard_config->set( 'renamelogin_stub', SITEGUARD_RENAME_MODE_STUB );
+			$siteguard_config->set( 'renamelogin_stub_reason', $reason );
 			$siteguard_config->update();
+			siteguard_error_log( 'Rename Login fell back to stub (.php) mode. Reason: ' . wp_json_encode( $reason ) );
 			return true;
 		}
 
 		return false;
+	}
+
+	/**
+	 * Why .htaccess mode cannot be used right now. Returns an empty array when it
+	 * can be used; otherwise an array like array( 'code' => ..., 'url' => ... )
+	 * describing the cause (server software, write permission, or which stage of
+	 * the .htaccess self-test failed). Used to explain stub (.php) fallback.
+	 */
+	private function htaccess_unavailable_reason() {
+		if ( ! $this->can_use_htaccess() ) {
+			$software = isset( $_SERVER['SERVER_SOFTWARE'] ) ? $_SERVER['SERVER_SOFTWARE'] : '';
+			if ( '' !== $software && false !== stripos( $software, 'nginx' ) ) {
+				return array( 'code' => 'nginx' );
+			}
+			if ( false === stripos( $software, 'apache' ) && false === stripos( $software, 'litespeed' ) ) {
+				return array( 'code' => 'server_software', 'detail' => $software );
+			}
+			return array( 'code' => 'not_writable' );
+		}
+		if ( ! SiteGuard_Htaccess::test_htaccess() ) {
+			return SiteGuard_Htaccess::$last_reason;
+		}
+		return array();
 	}
 
 	static function feature_off( $old_slug = null ) {

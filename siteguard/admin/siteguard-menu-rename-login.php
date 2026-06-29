@@ -163,11 +163,13 @@ class SiteGuard_Menu_Rename_Login extends SiteGuard_Base {
 			$stub_on  = ( SITEGUARD_RENAME_MODE_STUB === $siteguard_config->get( self::OPT_NAME_STUB ) );
 			$loginurl = rtrim( site_url(), '/' ) . '/' . ( $stub_on ? ( $slug . '.php' ) : $slug );
 			if ( $stub_on ) {
+				$reason = $this->stub_reason_text();
 				return sprintf(
-					'%s <code>%s</code><br>%s',
+					'%s <code>%s</code><br>%s%s',
 					esc_html__( 'Login URL:', 'siteguard' ),
 					esc_url( $loginurl ),
-					esc_html__( 'The login URL ends with .php because this server does not support .htaccess.', 'siteguard' )
+					esc_html__( 'The login URL ends with .php because this server does not support .htaccess.', 'siteguard' ),
+					'' !== $reason ? '<br>' . $reason : ''
 				);
 			} else {
 				return sprintf(
@@ -184,6 +186,71 @@ class SiteGuard_Menu_Rename_Login extends SiteGuard_Base {
 			$loginurl,
 				esc_html__( 'This feature is currently off.', 'siteguard' )
 		);
+	}
+
+	/**
+	 * Human-readable explanation of why stub (.php) mode was chosen, based on the
+	 * reason recorded by SiteGuard_RenameLogin::feature_on(). Returns '' when no
+	 * reason is available. The returned string may contain pre-escaped HTML.
+	 */
+	private function stub_reason_text() {
+		global $siteguard_config;
+		$reason = $siteguard_config->get( self::OPT_NAME_STUB . '_reason' );
+		if ( ! is_array( $reason ) || empty( $reason['code'] ) ) {
+			return '';
+		}
+		$url = isset( $reason['url'] ) ? '<code>' . esc_html( $reason['url'] ) . '</code>' : '';
+		switch ( $reason['code'] ) {
+			case 'nginx':
+				return esc_html__( 'Reason: the server is Nginx, which does not use .htaccess.', 'siteguard' );
+			case 'server_software':
+				return esc_html__( 'Reason: the server is not Apache/LiteSpeed, so .htaccess is not used.', 'siteguard' );
+			case 'not_writable':
+				return esc_html__( 'Reason: the .htaccess file (or the WordPress directory) is not writable.', 'siteguard' );
+			case 'mkdir':
+				return esc_html__( 'Reason: a temporary test directory could not be created in the WordPress directory (check write permission).', 'siteguard' );
+			case 'write':
+				return esc_html__( 'Reason: the temporary test files could not be written.', 'siteguard' );
+			case 'htaccess_ignored':
+				return sprintf(
+					/* translators: %s: test URL */
+					esc_html__( 'Reason: the .htaccess file is present but the server is ignoring it (for example AllowOverride is set to None, or mod_rewrite is not enabled for this directory), so the rewrite for %s had no effect.', 'siteguard' ),
+					$url
+				);
+			case 'wp_error':
+				return sprintf(
+					/* translators: 1: test URL, 2: error message */
+					esc_html__( 'Reason: the self-test request to %1$s failed (%2$s). The server may be unable to reach its own URL (loopback).', 'siteguard' ),
+					$url,
+					esc_html( isset( $reason['detail'] ) ? $reason['detail'] : '' )
+				);
+			case 'http_status':
+				$status = (int) ( isset( $reason['status'] ) ? $reason['status'] : 0 );
+				if ( 401 === $status || 403 === $status ) {
+					$hint = esc_html__( 'It may be blocked by an access restriction such as Basic authentication or an IP restriction.', 'siteguard' );
+				} elseif ( 404 === $status ) {
+					$hint = esc_html__( 'The test URL was not found, for example because WordPress is installed in a subdirectory so the self-test URL does not map to it, or the request is routed elsewhere.', 'siteguard' );
+				} elseif ( 429 === $status || 503 === $status ) {
+					$hint = esc_html__( 'The request was rate-limited or temporarily blocked. This is usually a server-side rate limit or anti-bot/access-control protection (separate from .htaccess), not a sign that .htaccess is broken. Try again after a short while.', 'siteguard' );
+				} elseif ( $status >= 300 && $status < 400 ) {
+					$hint = esc_html__( 'The request was redirected (for example HTTP to HTTPS, or a canonical redirect).', 'siteguard' );
+				} else {
+					$hint = '';
+				}
+				return sprintf(
+					/* translators: 1: test URL, 2: HTTP status code */
+					esc_html__( 'Reason: the self-test request to %1$s returned HTTP %2$s instead of 200.', 'siteguard' ),
+					$url,
+					esc_html( (string) $status )
+				) . ( '' !== $hint ? ' ' . $hint : '' );
+			case 'bad_body':
+				return sprintf(
+					/* translators: %s: test URL */
+					esc_html__( 'Reason: the self-test request to %s did not return the expected result; the .htaccess rewrite did not take effect (it may be disabled by AllowOverride or overridden by another rule).', 'siteguard' ),
+					$url
+				);
+		}
+		return '';
 	}
 
 	function render_page() {

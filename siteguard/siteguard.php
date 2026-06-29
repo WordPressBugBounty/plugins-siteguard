@@ -7,7 +7,7 @@ Author: JP-Secure
 Author URI: https://www.eg-secure.co.jp/
 Text Domain: siteguard
 Domain Path: /languages/
-Version: 1.8.5
+Version: 1.8.6
 */
 
 /*

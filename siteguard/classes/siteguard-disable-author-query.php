@@ -27,13 +27,26 @@ class SiteGuard_Disable_Author_Query extends SiteGuard_Base {
 			}
 		}
 	}
+	private function normalize_rest_api_namespace( $namespace ) {
+		$namespace = trim( $namespace );
+		return trim( $namespace, '/' );
+	}
+	private function is_excluded_rest_api_route( $route, $namespace ) {
+		$namespace = $this->normalize_rest_api_namespace( $namespace );
+		if ( '' === $namespace ) {
+			return false;
+		}
+
+		$route = '/' . ltrim( $route, '/' );
+		return $route === "/$namespace" || strpos( $route, "/$namespace/" ) === 0;
+	}
 	function handler_deny_rest_api( $result, $wp_rest_server, $request ) {
 		global $siteguard_config;
 		$exclude_app = preg_split( '/,/', $siteguard_config->get( 'disable_restapi_exclude' ) );
 
 		$route = $request->get_route();
 		foreach ( $exclude_app as $app ) {
-			if ( strpos( $route, "/$app/" ) === 0 ) {
+			if ( $this->is_excluded_rest_api_route( $route, $app ) ) {
 				return $result;
 			}
 		}
