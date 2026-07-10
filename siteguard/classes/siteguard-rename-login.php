@@ -660,16 +660,25 @@ class SiteGuard_RenameLogin extends SiteGuard_Base {
 		}
 		$base = $this->get_login_url();
 
-		$parts = wp_parse_url( $logout_url );
-		$q     = array();
-		if ( isset( $parts['query'] ) ) {
-			parse_str( $parts['query'], $q );
-		}
-		$q['action'] = 'logout';
+		// Rebuild the logout URL from scratch to mirror WordPress core's
+		// wp_logout_url(): urlencode redirect_to, then wrap with wp_nonce_url().
+		//
+		// We deliberately do NOT parse_str( $logout_url ) and re-emit its query:
+		// the incoming $logout_url has already been passed through wp_nonce_url(),
+		// which esc_html()-encodes it (so separators are "&amp;"). parse_str() then
+		// splits on "&", mangling keys into "amp;redirect_to"/"amp;_wpnonce" and
+		// url-decoding the value back to its raw form. add_query_arg() re-emits that
+		// raw value, so an attacker-controlled redirect_to would break out of the
+		// href printed (without esc_url) by wp_nonce_ays( 'log-out' ) -> XSS.
+		//
+		// wp_logout_url() applies the same urlencode() contract that consumers rely
+		// on, and wp_nonce_url() re-adds the logout nonce, so building fresh keeps
+		// the URL correctly (and singly) encoded.
+		$args = array( 'action' => 'logout' );
 		if ( ! empty( $redirect ) ) {
-			$q['redirect_to'] = $redirect;
+			$args['redirect_to'] = urlencode( $redirect );
 		}
-		return add_query_arg( $q, $base );
+		return wp_nonce_url( add_query_arg( $args, $base ), 'log-out' );
 	}
 
 	public function rewrite_adminbar_logout( $wp_admin_bar ) {

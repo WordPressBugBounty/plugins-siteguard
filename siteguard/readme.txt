@@ -4,7 +4,7 @@ Donate link: -
 Tags: security, login lock, login alert, captcha, pingback
 Requires at least: 6.0
 Tested up to: 7.0
-Stable tag: 1.8.6
+Stable tag: 1.8.7
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -66,6 +66,12 @@ This plugin is translated by the community. We appreciate your help with transla
 For FAQs, see the [English](https://www.jp-secure.com/siteguard_wp_plugin_en/faq.html) or [Japanese](https://www.jp-secure.com/siteguard_wp_plugin/faq.html) documentation.
 
 == Changelog ==
+
+= 1.8.7 =
+
+* Fixed a cross-site scripting (XSS) vulnerability in the logout URL that could occur when the login page URL is changed.
+
+Special thanks to daroo (Patchstack) for the report.
 
 = 1.8.6 =
 
