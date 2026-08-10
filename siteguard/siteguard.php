@@ -7,7 +7,7 @@ Author: JP-Secure
 Author URI: https://www.eg-secure.co.jp/
 Text Domain: siteguard
 Domain Path: /languages/
-Version: 1.8.7
+Version: 1.8.8
 */
 
 /*
@@ -97,6 +97,10 @@ $siteguard_updates_notify   = new SiteGuard_UpdatesNotify();
 function siteguard_activate() {
 	global $siteguard_config, $siteguard_admin_filter, $siteguard_rename_login, $siteguard_login_history, $siteguard_captcha, $siteguard_loginlock, $siteguard_loginalert, $siteguard_xmlrpc, $siteguard_pingback, $siteguard_author_query, $siteguard_waf_exclude_rule, $siteguard_updates_notify;
 
+	// Whether this is a first-time install, decided before the first update()
+	// below creates the option. See the version bookkeeping at the end.
+	$is_fresh_install = ! is_array( get_option( 'siteguard_config' ) );
+
 	load_plugin_textdomain(
 		'siteguard',
 		false,
@@ -116,6 +120,30 @@ function siteguard_activate() {
 	$siteguard_author_query->init();
 	$siteguard_waf_exclude_rule->init();
 	$siteguard_updates_notify->init();
+
+	if ( $is_fresh_install ) {
+		// One piece of 1.7.x state does outlive the plugin: its .htaccess blocks.
+		// Deleting the plugin through WordPress runs the deactivation hook, which
+		// clears them, but a directory removed by hand (FTP) leaves them in place,
+		// and the Admin Filter block ("RewriteRule ^wp-admin 404-siteguard") locks
+		// administrators out of /wp-admin/. upgrade() takes care of this for an
+		// in-place update; a fresh install skips upgrade() entirely because of the
+		// version recorded below, so the same cleanup has to happen here.
+		// clear_settings() does nothing when the mark is absent.
+		SiteGuard_Htaccess::clear_settings( $siteguard_admin_filter->get_mark() );
+		SiteGuard_Htaccess::clear_settings( $siteguard_xmlrpc->get_mark() );
+
+		// Record the version now. Every migration block in upgrade() repairs
+		// state left by an older release, and the init() calls above have just
+		// built the current state from scratch, so there is nothing to migrate.
+		//
+		// Without this the stored version stays empty (treated as 0.0.0) and
+		// upgrade() runs on every request until one of them finishes, calling
+		// SiteGuard_RenameLogin::feature_on() — and its loopback .htaccess
+		// self-test — many times in parallel right after activation.
+		$siteguard_config->set( 'version', SITEGUARD_VERSION );
+		$siteguard_config->update();
+	}
 }
 register_activation_hook( __FILE__, 'siteguard_activate' );
 
@@ -133,6 +161,8 @@ register_deactivation_hook( __FILE__, 'siteguard_deactivate' );
 
 
 class SiteGuard extends SiteGuard_Base {
+	const UPGRADE_LOCK_TRANSIENT = 'siteguard_upgrade_lock';
+
 	protected $menu_init;
 	function __construct() {
 		global $siteguard_config;
@@ -164,7 +194,19 @@ class SiteGuard extends SiteGuard_Base {
 		);
 	}
 	function htaccess_check() {
-		global $siteguard_config;
+		global $siteguard_config, $siteguard_rename_login;
+
+		// A self-test request is the plugin looking at itself mid-rebuild, so it
+		// must not judge the .htaccess state at all.
+		//
+		// The other mid-rebuild case — feature_on() having removed the block it
+		// is about to write back — is checked in rename_rebuild_in_progress()
+		// below, at the point where something would actually be changed. Reading
+		// that transient here instead would cost two option lookups on every
+		// single request just to confirm that nothing is wrong.
+		if ( siteguard_is_self_test_request() ) {
+			return;
+		}
 
 		// Only check whether the SiteGuard marker block still exists in .htaccess.
 		// The actual ".htaccess effectiveness" probe (test_htaccess) is performed
@@ -177,14 +219,119 @@ class SiteGuard extends SiteGuard_Base {
 			}
 		}
 		if ( '1' === $siteguard_config->get( 'renamelogin_enable' ) ) {
-			if ( SITEGUARD_RENAME_MODE_HTACCESS === $siteguard_config->get( 'renamelogin_stub' ) ) {
-				if ( ! SiteGuard_Htaccess::is_exists_setting( SiteGuard_RenameLogin::get_mark() ) ) {
+			// Act only on a mode that was actually recorded. "renamelogin_stub"
+			// arrived in 1.8.0, and nothing in upgrade() backfills it — the only
+			// migration that would (via feature_on()) is gated on < 1.2.5 — so an
+			// install updated from 1.7.x keeps it unset until an administrator
+			// saves the Rename Login screen. That install is working: it is served
+			// by the .htaccess block 1.7.x wrote, and is_stub_mode() reads the
+			// unset value as "not stub", so the URLs handed out match.
+			//
+			// Treating the unset value as stub mode here would make the branch
+			// below "repair" that healthy install — write a stub file, then delete
+			// the block that is actually serving the login page — and no later
+			// migration would undo it.
+			$mode = $siteguard_config->get( 'renamelogin_stub' );
+			if ( SITEGUARD_RENAME_MODE_HTACCESS === $mode ) {
+				if ( ! SiteGuard_Htaccess::is_exists_setting( SiteGuard_RenameLogin::get_mark() )
+					&& ! $this->rename_rebuild_in_progress()
+				) {
+					$siteguard_config->set( 'renamelogin_enable', '0' );
+					$siteguard_config->update();
+				}
+			} elseif ( SITEGUARD_RENAME_MODE_STUB === $mode ) {
+				// Stub (.php) mode. Restore the agreement between what is
+				// recorded, what the server does and which files exist:
+				// concurrent feature_on() runs could leave any combination
+				// behind (each one starts by deleting both the .htaccess block
+				// and the current stub file before deciding again), and the stub
+				// file can also go missing on its own, e.g. removed by an
+				// administrator who did not recognise it in the site root.
+				$stub_exists  = file_exists( $siteguard_rename_login->stub_abspath() );
+				$block_exists = $siteguard_rename_login->can_use_htaccess()
+					&& SiteGuard_Htaccess::is_exists_setting( SiteGuard_RenameLogin::get_mark() );
+
+				// The healthy shape of stub mode: the stub is there and no
+				// leftover block. Both have to be looked at to know that — the
+				// "leftover block" case is exactly the one where the stub is
+				// present too — so the reads above cannot be skipped; on Nginx
+				// can_use_htaccess() returns before touching the file.
+				if ( $stub_exists && ! $block_exists ) {
+					return;
+				}
+				if ( $this->rename_rebuild_in_progress() ) {
+					return;
+				}
+
+				// Put the stub back first. It is the entry point the recorded
+				// settings advertise, and it has to exist before the .htaccess
+				// block — which may be the only one working right now — is
+				// taken away.
+				if ( ! $stub_exists ) {
+					$stub_exists = $siteguard_rename_login->ensure_stub();
+				}
+
+				if ( $block_exists && $stub_exists ) {
+					// The block rewrites "<slug>(.*)" to "wp-login.php$1", so the
+					// "<slug>.php" URL shown on the settings screen turns into
+					// "wp-login.php.php" and returns 404 — while the login form
+					// rendered at the extensionless URL posts to that same dead
+					// ".php" address. Dropping the block leaves the stub serving
+					// the URL that is actually advertised.
+					//
+					// Converging on the recorded mode is also the only safe move
+					// when it cannot be told whether the block does anything:
+					// can_use_htaccess() only knows that this is Apache and that
+					// the file is writable, not whether the server reads it at
+					// all (AllowOverride None). Keeping the block and switching
+					// the recorded mode to match it would, in that case, point
+					// the settings screen at a URL that nothing serves.
+					SiteGuard_Htaccess::clear_settings( SiteGuard_RenameLogin::get_mark() );
+				} elseif ( $block_exists ) {
+					// The stub could not be written (a read-only site root), so
+					// the .htaccess block is the only way in that is left.
+					// Record the mode that matches it rather than removing it.
+					//
+					// A block in .htaccess is good evidence that .htaccess works
+					// here: feature_on() only writes one after its self-test has
+					// passed. That is why this is preferred over turning the
+					// feature off — it keeps a login URL that is very likely
+					// serving, instead of exposing wp-login.php again.
+					$siteguard_config->set( 'renamelogin_stub', SITEGUARD_RENAME_MODE_HTACCESS );
+					$siteguard_config->set( 'renamelogin_stub_reason', array() );
+					$siteguard_config->update();
+				} elseif ( ! $stub_exists ) {
+					// Neither entry point exists and the stub cannot be written
+					// (a read-only site root): nothing serves the login page at
+					// all, and retrying the same failing write on every request
+					// would never change that. Hand the login page back to
+					// wp-login.php, exactly as the .htaccess branch above does
+					// when its block has gone missing — being able to log in
+					// matters more than keeping the URL hidden.
+					// maybe_notice_stub_failed() explains the cause once an
+					// administrator is back in.
+					siteguard_error_log( 'Rename Login turned off: the stub file is missing and cannot be created.' );
 					$siteguard_config->set( 'renamelogin_enable', '0' );
 					$siteguard_config->update();
 				}
 			}
 		}
 	}
+	/**
+	 * Whether SiteGuard_RenameLogin::feature_on() is rebuilding the .htaccess
+	 * block right now. Between its clear_settings() and update_settings() the
+	 * block is legitimately absent, and a request landing in that window must
+	 * not read that as "the feature is broken".
+	 *
+	 * Only called once a discrepancy has been seen, so the option lookups stay
+	 * off the path of ordinary requests.
+	 *
+	 * @return bool
+	 */
+	private function rename_rebuild_in_progress() {
+		return (bool) get_transient( SiteGuard_RenameLogin::HTACCESS_REBUILD_TRANSIENT );
+	}
+
 	function admin_notices() {
 		global $siteguard_rename_login;
 		echo '<div class="updated" style="background-color:#719f1d;"><p><span style="border: 4px solid #def1b8;padding: 4px 4px;color:#fff;font-weight:bold;background-color:#038bc3;">';
@@ -208,6 +355,23 @@ class SiteGuard extends SiteGuard_Base {
 		if ( $old_version === SITEGUARD_VERSION ) {
 			return;
 		}
+		// The self-test request of an upgrade already in progress. Migrating
+		// from here would start a second upgrade (and a third, and so on: each
+		// self-test that falls through to WordPress boots the plugin again)
+		// before the first one has recorded the new version.
+		if ( siteguard_is_self_test_request() ) {
+			return;
+		}
+		// Advisory lock: the version is only recorded once the migration
+		// finishes, so without it every request that arrives in the meantime
+		// repeats the same work — including feature_on() and its loopback
+		// self-test. It is released below so that a failed upgrade is retried
+		// on the next request as before; the timeout only covers a request
+		// that dies midway.
+		if ( get_transient( self::UPGRADE_LOCK_TRANSIENT ) ) {
+			return;
+		}
+		set_transient( self::UPGRADE_LOCK_TRANSIENT, 1, 5 * MINUTE_IN_SECONDS );
 		if ( version_compare( $old_version, '1.0.6' ) < 0 ) {
 			if ( '1' === $siteguard_config->get( 'admin_filter_enable' ) ) {
 				if ( true !== $siteguard_admin_filter->feature_on( $this->get_ip() ) ) {
@@ -356,6 +520,7 @@ class SiteGuard extends SiteGuard_Base {
 			$siteguard_config->set( 'version', SITEGUARD_VERSION );
 			$siteguard_config->update();
 		}
+		delete_transient( self::UPGRADE_LOCK_TRANSIENT );
 	}
 }
 $siteguard = new SiteGuard();

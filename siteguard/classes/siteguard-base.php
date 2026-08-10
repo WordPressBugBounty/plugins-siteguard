@@ -25,6 +25,26 @@ function siteguard_rand( $min = null, $max = null ) {
 	return $ret;
 }
 
+/**
+ * Whether the current request is the plugin's own .htaccess self-test request.
+ *
+ * The self-test asks the server for a file inside a temporary directory under
+ * ABSPATH. When that file cannot be served — the directory was already removed,
+ * or the rewrite under test is ignored — the request falls through to
+ * WordPress, which boots the plugin as usual. Such a request must not perform
+ * any .htaccess bookkeeping of its own: the run that issued it is in the middle
+ * of rebuilding the very state it would inspect, and re-entering upgrade() from
+ * here starts another self-test, and another WordPress boot, and so on.
+ *
+ * @return bool
+ */
+function siteguard_is_self_test_request() {
+	if ( ! isset( $_SERVER['REQUEST_URI'] ) ) {
+		return false;
+	}
+	return ( false !== strpos( (string) $_SERVER['REQUEST_URI'], SiteGuard_Htaccess::TEST_DIR_PREFIX ) );
+}
+
 function siteguard_check_multisite() {
 	if ( ! is_multisite() ) {
 		return true;

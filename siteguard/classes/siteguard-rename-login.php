@@ -6,6 +6,23 @@ require_once SITEGUARD_PATH . 'really-simple-captcha/siteguard-really-simple-cap
 class SiteGuard_RenameLogin extends SiteGuard_Base {
 	private $denied_login = false;
 
+	/**
+	 * True while the login URL conflict probe is running. The URL filters below
+	 * pass their input through untouched during that window so the probe can
+	 * observe what the *other* plugins on the same filter do. See
+	 * probe_foreign_login_url().
+	 *
+	 * Static because feature_off() constructs a second instance of this class,
+	 * whose filters are registered as well; a per-instance flag would leave that
+	 * second instance rewriting the probe URL and the probe would report the
+	 * plugin's own rewrite as a foreign one.
+	 */
+	private static $probing = false;
+
+	/** Result of the conflict probe for this request. See get_login_url_conflict(). */
+	private static $conflict         = null;
+	private static $conflict_checked = false;
+
 	protected static $incompatible_plugins = array(
 		'WordPress HTTPS (SSL)' => 'wordpress-https/wordpress-https.php',
 		'qTranslate X'          => 'qtranslate-x/qtranslate.php',
@@ -14,12 +31,24 @@ class SiteGuard_RenameLogin extends SiteGuard_Base {
 
 	const STUB_WRITE_FAIL_TRANSIENT = 'siteguard_rl_stub_fail';
 
+	// Set while feature_on() rebuilds the .htaccess block. clear_settings()
+	// removes the block before update_settings() writes it back, and a
+	// concurrent request landing in that window would see the block missing and
+	// turn the feature off. See SiteGuard::htaccess_check().
+	const HTACCESS_REBUILD_TRANSIENT = 'siteguard_rl_htaccess_rebuild';
+
 	function __construct() {
 		global $siteguard_config;
 
 		add_filter( 'logout_url', array( $this, 'filter_logout_url' ), 10, 2 );
 		add_action( 'admin_bar_menu', array( $this, 'rewrite_adminbar_logout' ), 999 );
 		add_action( 'admin_notices', array( $this, 'maybe_notice_stub_failed' ) );
+
+		// Late priority: plugins that rewrite the login URL register their filters
+		// at various points (plugins_loaded, init, wp_loaded), and admin_init runs
+		// after all of them.
+		add_action( 'admin_init', array( $this, 'check_login_url_conflict' ), 9999 );
+		add_action( 'admin_notices', array( $this, 'maybe_notice_login_url_conflict' ) );
 
 		if ( '1' === $siteguard_config->get( 'renamelogin_enable' ) ) {
 			if ( null !== $this->get_active_incompatible_plugins() ) {
@@ -131,7 +160,7 @@ class SiteGuard_RenameLogin extends SiteGuard_Base {
 		return $this->old_slug() . '.php';
 	}
 
-	private function stub_abspath() {
+	public function stub_abspath() {
 		return trailingslashit( ABSPATH ) . $this->stub_filename();
 	}
 
@@ -153,6 +182,26 @@ class SiteGuard_RenameLogin extends SiteGuard_Base {
 		}
 		@chmod( $file, 0644 );
 		return true;
+	}
+
+	/**
+	 * Make sure the stub file the current settings promise is in place, without
+	 * rewriting it when it already is. Used to recover an install whose stub
+	 * went missing while stub (.php) mode stayed recorded.
+	 *
+	 * @return bool
+	 */
+	public function ensure_stub() {
+		if ( file_exists( $this->stub_abspath() ) ) {
+			return true;
+		}
+		// This runs on every request, so a site whose root is not writable must
+		// not retry (and record the failure) each time. install_stub() keeps the
+		// transient for ten minutes, which paces the retries.
+		if ( get_transient( self::STUB_WRITE_FAIL_TRANSIENT ) ) {
+			return false;
+		}
+		return $this->install_stub();
 	}
 
 	private function remove_stub( $file ) {
@@ -268,6 +317,9 @@ class SiteGuard_RenameLogin extends SiteGuard_Base {
 	}
 
 	function convert_url( $link ) {
+		if ( self::$probing ) {
+			return $link;
+		}
 		$result = $link;
 		$repl   = $this->is_stub_mode() ? $this->stub_filename() : $this->slug();
 
@@ -313,6 +365,15 @@ class SiteGuard_RenameLogin extends SiteGuard_Base {
 	}
 
 	function feature_on() {
+		// Announce the rebuild for its whole duration, so that requests arriving
+		// while the .htaccess block is momentarily absent do not act on it.
+		set_transient( self::HTACCESS_REBUILD_TRANSIENT, 1, MINUTE_IN_SECONDS );
+		$result = $this->rebuild_feature();
+		delete_transient( self::HTACCESS_REBUILD_TRANSIENT );
+		return $result;
+	}
+
+	private function rebuild_feature() {
 		global $siteguard_htaccess, $siteguard_config;
 
 		// Remove .htaccess feature
@@ -582,7 +643,7 @@ class SiteGuard_RenameLogin extends SiteGuard_Base {
 		echo '</body></html>';
 	}
 
-	private function get_login_url() {
+	public function get_login_url() {
 		global $siteguard_config;
 		if ( '0' === $siteguard_config->get( 'renamelogin_enable' ) ) {
 			return rtrim( site_url(), '/' ) . '/wp-login.php';
@@ -696,6 +757,336 @@ class SiteGuard_RenameLogin extends SiteGuard_Base {
 				$wp_admin_bar->add_node( $node );
 			}
 		}
+	}
+
+	/**
+	 * Result of the login URL conflict probe for this request, or null when no
+	 * other plugin was found to be changing the login page URL.
+	 *
+	 * Keys: 'url' (the login URL the other plugin produces), 'plugin' (its name,
+	 * or '' when it could not be resolved), 'same_url' (bool) and 'fatal_risk'
+	 * (bool). Populated by check_login_url_conflict() on admin_init.
+	 *
+	 * @return array|null
+	 */
+	public static function get_login_url_conflict() {
+		return self::$conflict;
+	}
+
+	/**
+	 * Run the login URL conflict probe once per admin request.
+	 *
+	 * Only admin screens are checked: the result is only ever shown to an
+	 * administrator, and admin_init is the earliest hook that runs after every
+	 * other plugin has registered its URL filters. admin-ajax.php also fires
+	 * admin_init, so AJAX (and cron / REST) is excluded to keep the probe off
+	 * background requests.
+	 */
+	public function check_login_url_conflict() {
+		global $siteguard_config;
+
+		if ( self::$conflict_checked ) {
+			return;
+		}
+		if ( ! is_admin() || wp_doing_ajax() || wp_doing_cron() ) {
+			return;
+		}
+		if ( defined( 'REST_REQUEST' ) && REST_REQUEST ) {
+			return;
+		}
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+		if ( '1' !== $siteguard_config->get( 'renamelogin_enable' ) ) {
+			return;
+		}
+
+		self::$conflict_checked = true;
+		self::$conflict         = $this->probe_foreign_login_url();
+	}
+
+	/**
+	 * Detect whether another plugin is also changing the login page URL.
+	 *
+	 * Rather than checking for known plugins by name, this observes the symptom
+	 * itself: every plugin that renames the login page has to rewrite the URLs
+	 * WordPress generates for wp-login.php, and does so through the 'site_url'
+	 * or 'login_url' filters. So an unfiltered wp-login.php URL is pushed
+	 * through those filters with our own rewrite suspended (self::$probing); if
+	 * "wp-login.php" is gone from the result, somebody else is rewriting it too.
+	 *
+	 * Requiring "wp-login.php" to disappear (rather than any change at all) is
+	 * what keeps plugins that merely decorate site_url — multilingual plugins
+	 * adding a language prefix, for instance — from being reported.
+	 *
+	 * @return array|null Conflict details, or null when nothing was detected.
+	 */
+	private function probe_foreign_login_url() {
+		// Build the URL without site_url() so the filters under test are applied
+		// exactly once, by us, below.
+		$raw = rtrim( (string) get_option( 'siteurl' ), '/' ) . '/wp-login.php';
+
+		$probes = array(
+			'site_url'  => array( 'wp-login.php', null, null ),
+			'login_url' => array( '', false ),
+		);
+
+		// The probe runs other plugins' filter callbacks. A failure in one of
+		// them has to stay inside that one probe: it must not take the admin
+		// screen down, and it must not skip the remaining hook — a plugin that
+		// only filters login_url is exactly the kind this feature looks for.
+		// self::$probing is cleared either way, or the URL rewriting would stay
+		// disabled for the rest of the request.
+		$found = null;
+		self::$probing = true;
+		foreach ( $probes as $hook => $args ) {
+			$params = array_merge( array( $raw ), $args );
+			try {
+				$probed = call_user_func_array( 'apply_filters', array_merge( array( $hook ), $params ) );
+			} catch ( Exception $e ) {
+				siteguard_error_log( 'Login URL conflict probe failed on ' . $hook . ': ' . $e->getMessage() );
+				continue;
+			} catch ( Throwable $e ) {
+				siteguard_error_log( 'Login URL conflict probe failed on ' . $hook . ': ' . $e->getMessage() );
+				continue;
+			}
+			if ( ! is_string( $probed ) || '' === $probed || false !== strpos( $probed, 'wp-login.php' ) ) {
+				continue;
+			}
+			// The conflict itself is established at this point. Failing to name
+			// the plugin responsible must not discard it.
+			$plugin = '';
+			try {
+				$plugin = $this->conflicting_plugin_names( $hook, $raw, $args );
+			} catch ( Exception $e ) {
+				siteguard_error_log( 'Naming the conflicting plugin failed: ' . $e->getMessage() );
+			} catch ( Throwable $e ) {
+				siteguard_error_log( 'Naming the conflicting plugin failed: ' . $e->getMessage() );
+			}
+			$found = array(
+				'url'    => $probed,
+				'plugin' => $plugin,
+			);
+			break;
+		}
+		self::$probing = false;
+
+		if ( null === $found ) {
+			return null;
+		}
+
+		$same_url = $this->is_same_login_url( $this->get_login_url(), $found['url'] );
+
+		return array(
+			'url'        => $found['url'],
+			'plugin'     => $found['plugin'],
+			'same_url'   => $same_url,
+			// The fatal error only happens when our .htaccess rewrite makes the
+			// core wp-login.php execute (declaring login_header() and friends)
+			// while the other plugin, matching the very same URL, loads its own
+			// copy of the login page on top of it. In stub (.php) mode our URL
+			// ends in ".php", which no other plugin's slug matches.
+			'fatal_risk' => ( $same_url && ! $this->is_stub_mode() ),
+		);
+	}
+
+	/**
+	 * Names of the active plugins whose callbacks on $hook_name remove
+	 * wp-login.php from the URL. Each foreign callback is applied on its own so
+	 * that a plugin which merely happens to filter the same hook is not blamed
+	 * for another plugin's rewrite.
+	 *
+	 * @param string $hook_name Filter to inspect.
+	 * @param string $raw       Unfiltered wp-login.php URL.
+	 * @param array  $args      Remaining filter arguments.
+	 * @return string Comma separated plugin names, or '' when none could be resolved.
+	 */
+	private function conflicting_plugin_names( $hook_name, $raw, $args ) {
+		global $wp_filter;
+
+		if ( empty( $wp_filter[ $hook_name ] ) ) {
+			return '';
+		}
+
+		$self_dir = wp_normalize_path( SITEGUARD_PATH );
+		$names    = array();
+
+		foreach ( $wp_filter[ $hook_name ] as $callbacks ) {
+			if ( ! is_array( $callbacks ) ) {
+				continue;
+			}
+			foreach ( $callbacks as $callback ) {
+				if ( ! isset( $callback['function'] ) || ! is_callable( $callback['function'] ) ) {
+					continue;
+				}
+				$file = $this->callback_file( $callback['function'] );
+				if ( '' === $file || 0 === strpos( wp_normalize_path( $file ), $self_dir ) ) {
+					continue;
+				}
+				$name = $this->plugin_name_by_file( $file );
+				if ( '' === $name || in_array( $name, $names, true ) ) {
+					continue;
+				}
+
+				$accepted = isset( $callback['accepted_args'] ) ? (int) $callback['accepted_args'] : 1;
+				$params   = array_slice( array_merge( array( $raw ), $args ), 0, max( 1, $accepted ) );
+				try {
+					$result = call_user_func_array( $callback['function'], $params );
+				} catch ( Exception $e ) {
+					continue;
+				} catch ( Throwable $e ) {
+					continue;
+				}
+				if ( is_string( $result ) && false === strpos( $result, 'wp-login.php' ) ) {
+					$names[] = $name;
+				}
+			}
+		}
+
+		return implode( ', ', $names );
+	}
+
+	/**
+	 * Source file a filter callback is defined in, or '' when it cannot be
+	 * resolved (internal functions, or anything Reflection refuses).
+	 *
+	 * @param mixed $callback Callback as stored in $wp_filter.
+	 * @return string
+	 */
+	private function callback_file( $callback ) {
+		try {
+			if ( is_array( $callback ) && 2 === count( $callback ) ) {
+				$class = is_object( $callback[0] ) ? get_class( $callback[0] ) : $callback[0];
+				$ref   = new ReflectionMethod( $class, $callback[1] );
+			} elseif ( is_string( $callback ) && false !== strpos( $callback, '::' ) ) {
+				$ref = new ReflectionMethod( $callback );
+			} elseif ( is_object( $callback ) && ! ( $callback instanceof Closure ) ) {
+				$ref = new ReflectionMethod( $callback, '__invoke' );
+			} else {
+				$ref = new ReflectionFunction( $callback );
+			}
+		} catch ( Exception $e ) {
+			return '';
+		}
+
+		$file = $ref->getFileName();
+		return is_string( $file ) ? $file : '';
+	}
+
+	/**
+	 * Name of the active plugin that owns $file, or '' when the file does not
+	 * belong to one (a theme, a must-use plugin, or WordPress itself).
+	 *
+	 * @param string $file Absolute path.
+	 * @return string
+	 */
+	private function plugin_name_by_file( $file ) {
+		$plugin_dir = trailingslashit( wp_normalize_path( WP_PLUGIN_DIR ) );
+		$file       = wp_normalize_path( $file );
+		if ( 0 !== strpos( $file, $plugin_dir ) ) {
+			return '';
+		}
+
+		$relative = substr( $file, strlen( $plugin_dir ) );
+		$slug     = ( false !== strpos( $relative, '/' ) ) ? substr( $relative, 0, strpos( $relative, '/' ) ) : $relative;
+		if ( '' === $slug ) {
+			return '';
+		}
+
+		foreach ( get_plugins() as $plugin_file => $data ) {
+			if ( $plugin_file !== $slug && 0 !== strpos( $plugin_file, $slug . '/' ) ) {
+				continue;
+			}
+			if ( is_plugin_active( $plugin_file ) && ! empty( $data['Name'] ) ) {
+				return $data['Name'];
+			}
+		}
+		return '';
+	}
+
+	/**
+	 * Whether two login URLs would be requested by the same path. Trailing
+	 * slashes are ignored (some plugins hand out a trailing slashed URL); a
+	 * query string has to match as well, because a plugin that puts its slug in
+	 * the query (e.g. /?secret) is not hit by a request for our path.
+	 *
+	 * @param string $a URL.
+	 * @param string $b URL.
+	 * @return bool
+	 */
+	private function is_same_login_url( $a, $b ) {
+		$path_a  = untrailingslashit( (string) wp_parse_url( $a, PHP_URL_PATH ) );
+		$path_b  = untrailingslashit( (string) wp_parse_url( $b, PHP_URL_PATH ) );
+		$query_a = (string) wp_parse_url( $a, PHP_URL_QUERY );
+		$query_b = (string) wp_parse_url( $b, PHP_URL_QUERY );
+
+		return ( $path_a === $path_b && $query_a === $query_b );
+	}
+
+	/**
+	 * Warning text for a detected conflict. Returns pre-escaped HTML.
+	 *
+	 * @param array $conflict As returned by get_login_url_conflict().
+	 * @return string
+	 */
+	public static function conflict_message( $conflict ) {
+		$url    = '<code>' . esc_html( $conflict['url'] ) . '</code>';
+		$plugin = '' !== $conflict['plugin'] ? '<strong>' . esc_html( $conflict['plugin'] ) . '</strong>' : '';
+
+		if ( ! empty( $conflict['fatal_risk'] ) ) {
+			if ( '' !== $plugin ) {
+				return sprintf(
+					/* translators: 1: plugin name, 2: login URL */
+					esc_html__( '%1$s is also changing the login page URL, to the same URL as SiteGuard (%2$s). In this state the login page can stop working with a PHP fatal error. Please turn off the login page URL change feature in one of the two plugins.', 'siteguard' ),
+					$plugin,
+					$url
+				);
+			}
+			return sprintf(
+				/* translators: %s: login URL */
+				esc_html__( 'Another active plugin is also changing the login page URL, to the same URL as SiteGuard (%s). In this state the login page can stop working with a PHP fatal error. Please turn off the login page URL change feature in one of the two plugins.', 'siteguard' ),
+				$url
+			);
+		}
+
+		if ( '' !== $plugin ) {
+			return sprintf(
+				/* translators: 1: plugin name, 2: login URL */
+				esc_html__( '%1$s is also changing the login page URL (%2$s). Two different login URLs stay available, which weakens this feature, and the two can conflict later. Please use the login page URL change feature in only one of the two plugins.', 'siteguard' ),
+				$plugin,
+				$url
+			);
+		}
+		return sprintf(
+			/* translators: %s: login URL */
+			esc_html__( 'Another active plugin is also changing the login page URL (%s). Two different login URLs stay available, which weakens this feature, and the two can conflict later. Please use the login page URL change feature in only one of the two plugins.', 'siteguard' ),
+			$url
+		);
+	}
+
+	/**
+	 * Admin notice for the case that actually breaks the site: both plugins
+	 * pointing at the same URL while we serve it through the .htaccess rewrite.
+	 * The milder cases are reported on the Rename Login screen only, so that a
+	 * situation which is not currently breaking anything does not follow the
+	 * administrator around the dashboard.
+	 */
+	public function maybe_notice_login_url_conflict() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+		// The Rename Login screen prints its own, always-visible block.
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- reading which admin screen is being rendered; no state is changed.
+		$screen = isset( $_GET['page'] ) ? sanitize_text_field( wp_unslash( $_GET['page'] ) ) : '';
+		if ( 'siteguard_rename_login' === $screen ) {
+			return;
+		}
+		$conflict = self::get_login_url_conflict();
+		if ( null === $conflict || empty( $conflict['fatal_risk'] ) ) {
+			return;
+		}
+
+		echo '<div class="notice notice-error is-dismissible"><p>' . wp_kses_post( self::conflict_message( $conflict ) ) . '</p></div>';
 	}
 
 	public function maybe_notice_stub_failed() {

@@ -279,6 +279,14 @@ class SiteGuard_Menu_Rename_Login extends SiteGuard_Base {
 
 		echo '<div class="notice notice-info" style="padding:8px 12px;margin-top:10px;">' . wp_kses_post( $this->current_mode_description() ) . '</div>';
 
+		$conflict = SiteGuard_RenameLogin::get_login_url_conflict();
+		if ( null !== $conflict ) {
+			$class = ! empty( $conflict['fatal_risk'] ) ? 'notice notice-error' : 'notice notice-warning';
+			echo '<div class="' . esc_attr( $class ) . '" style="padding:8px 12px;margin-top:10px;">'
+				. wp_kses_post( SiteGuard_RenameLogin::conflict_message( $conflict ) )
+				. '</div>';
+		}
+
 		$documentation_link = '<a href="' . esc_url( __( 'https://www.jp-secure.com/siteguard_wp_plugin_en/howto/rename_login/', 'siteguard' ) ) . '" target="_blank">' . esc_html__( 'online documentation', 'siteguard' ) . '</a>';
 		echo '<div class="siteguard-description">'
 			. sprintf(

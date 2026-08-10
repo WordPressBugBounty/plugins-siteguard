@@ -2,9 +2,9 @@
 # This file is distributed under the same license as the SiteGuard WP Plugin package.
 msgid ""
 msgstr ""
-"Project-Id-Version: SiteGuard WP Plugin 1.8.7\n"
+"Project-Id-Version: SiteGuard WP Plugin 1.8.8\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/siteguard\n"
-"POT-Creation-Date: 2026-07-10 02:10:38+00:00\n"
+"POT-Creation-Date: 2026-08-06 09:08:23+00:00\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -146,7 +146,7 @@ msgstr ""
 #: admin/siteguard-menu-login-history.php:18
 #: admin/siteguard-menu-login-lock.php:78
 #: admin/siteguard-menu-protect-xmlrpc.php:98
-#: admin/siteguard-menu-rename-login.php:282
+#: admin/siteguard-menu-rename-login.php:290
 #: admin/siteguard-menu-same-error.php:50
 #: admin/siteguard-menu-updates-notify.php:78
 #: admin/siteguard-menu-waf-tuning-support.php:242
@@ -161,7 +161,7 @@ msgstr ""
 #: admin/siteguard-menu-login-history.php:22
 #: admin/siteguard-menu-login-lock.php:82
 #: admin/siteguard-menu-protect-xmlrpc.php:102
-#: admin/siteguard-menu-rename-login.php:286
+#: admin/siteguard-menu-rename-login.php:294
 #: admin/siteguard-menu-same-error.php:54
 #: admin/siteguard-menu-updates-notify.php:82
 #: admin/siteguard-menu-waf-tuning-support.php:246
@@ -174,7 +174,7 @@ msgstr ""
 #: admin/siteguard-menu-login-alert.php:76
 #: admin/siteguard-menu-login-lock.php:94
 #: admin/siteguard-menu-protect-xmlrpc.php:115
-#: admin/siteguard-menu-rename-login.php:298
+#: admin/siteguard-menu-rename-login.php:306
 #: admin/siteguard-menu-same-error.php:66
 #: admin/siteguard-menu-updates-notify.php:94
 #: admin/siteguard-menu-waf-tuning-support.php:258
@@ -187,7 +187,7 @@ msgstr ""
 #: admin/siteguard-menu-login-alert.php:79
 #: admin/siteguard-menu-login-lock.php:97
 #: admin/siteguard-menu-protect-xmlrpc.php:118
-#: admin/siteguard-menu-rename-login.php:301
+#: admin/siteguard-menu-rename-login.php:309
 #: admin/siteguard-menu-same-error.php:69
 #: admin/siteguard-menu-updates-notify.php:97
 #: admin/siteguard-menu-waf-tuning-support.php:261
@@ -222,7 +222,7 @@ msgid "https://www.jp-secure.com/siteguard_wp_plugin_en/howto/author_query/"
 msgstr ""
 
 #: admin/siteguard-menu-author-query.php:120
-#: admin/siteguard-menu-rename-login.php:332
+#: admin/siteguard-menu-rename-login.php:340
 msgid "Option"
 msgstr ""
 
@@ -321,7 +321,7 @@ msgstr ""
 msgid "Dashboard"
 msgstr ""
 
-#. #-#-#-#-#  siteguard.pot (SiteGuard WP Plugin 1.8.7)  #-#-#-#-#
+#. #-#-#-#-#  siteguard.pot (SiteGuard WP Plugin 1.8.8)  #-#-#-#-#
 #. Plugin URI of the plugin/theme
 #: admin/siteguard-menu-dashboard.php:34
 msgid "https://www.jp-secure.com/siteguard_wp_plugin_en/"
@@ -697,43 +697,43 @@ msgid ""
 "overridden by another rule)."
 msgstr ""
 
-#: admin/siteguard-menu-rename-login.php:282
+#: admin/siteguard-menu-rename-login.php:290
 msgid "https://www.jp-secure.com/siteguard_wp_plugin_en/howto/rename_login/"
 msgstr ""
 
-#: admin/siteguard-menu-rename-login.php:306
+#: admin/siteguard-menu-rename-login.php:314
 msgid ""
 "Works automatically on most servers. If activation fails, please check file "
 "permissions or contact your hosting provider."
 msgstr ""
 
-#: admin/siteguard-menu-rename-login.php:311
+#: admin/siteguard-menu-rename-login.php:319
 msgid "New Login Path"
 msgstr ""
 
-#: admin/siteguard-menu-rename-login.php:324
+#: admin/siteguard-menu-rename-login.php:332
 msgid "The actual login URL will include .php at the end."
 msgstr ""
 
-#: admin/siteguard-menu-rename-login.php:326
+#: admin/siteguard-menu-rename-login.php:334
 msgid "Letters, numbers, hyphens, and underscores only."
 msgstr ""
 
-#: admin/siteguard-menu-rename-login.php:336
+#: admin/siteguard-menu-rename-login.php:344
 msgid "Do not redirect from the admin page to the login page."
 msgstr ""
 
-#: admin/siteguard-menu-rename-login.php:340
+#: admin/siteguard-menu-rename-login.php:348
 msgid "Enable login rescue"
 msgstr ""
 
-#: admin/siteguard-menu-rename-login.php:341
+#: admin/siteguard-menu-rename-login.php:349
 msgid ""
 "Users can request the current login URL by solving a CAPTCHA. For security, "
 "a confirmation is always shown regardless of whether the address exists."
 msgstr ""
 
-#: admin/siteguard-menu-rename-login.php:348
+#: admin/siteguard-menu-rename-login.php:356
 msgid ""
 "This protects your site by changing the login page URL, making it harder for "
 "automated attacks to find it. The default URL is “login_&lt;5 random "
@@ -940,7 +940,7 @@ msgstr ""
 msgid "Delete"
 msgstr ""
 
-#: classes/siteguard-base.php:32
+#: classes/siteguard-base.php:52
 msgid "This plugin does not support WordPress multisite."
 msgstr ""
 
@@ -1007,46 +1007,46 @@ msgstr ""
 msgid "ERROR: Please log in again"
 msgstr ""
 
-#: classes/siteguard-rename-login.php:437
+#: classes/siteguard-rename-login.php:478
 msgid "Request limit reached. Please try again later."
 msgstr ""
 
-#: classes/siteguard-rename-login.php:480
-#: classes/siteguard-rename-login.php:482
-#: classes/siteguard-rename-login.php:578
-#: classes/siteguard-rename-login.php:580
+#: classes/siteguard-rename-login.php:521
+#: classes/siteguard-rename-login.php:523
+#: classes/siteguard-rename-login.php:619
+#: classes/siteguard-rename-login.php:621
 msgid "Login URL Rescue"
 msgstr ""
 
-#: classes/siteguard-rename-login.php:495
+#: classes/siteguard-rename-login.php:536
 msgid "Administrator email address"
 msgstr ""
 
-#: classes/siteguard-rename-login.php:500
+#: classes/siteguard-rename-login.php:541
 msgid "Enter the characters shown above"
 msgstr ""
 
-#: classes/siteguard-rename-login.php:505
+#: classes/siteguard-rename-login.php:546
 msgid "Send email"
 msgstr ""
 
-#: classes/siteguard-rename-login.php:532
+#: classes/siteguard-rename-login.php:573
 msgid "Invalid request."
 msgstr ""
 
-#: classes/siteguard-rename-login.php:544
+#: classes/siteguard-rename-login.php:585
 msgid "Please enter a valid email address."
 msgstr ""
 
-#: classes/siteguard-rename-login.php:550
+#: classes/siteguard-rename-login.php:591
 msgid "Invalid CAPTCHA."
 msgstr ""
 
-#: classes/siteguard-rename-login.php:562
+#: classes/siteguard-rename-login.php:603
 msgid "WordPress: Login URL Rescue"
 msgstr ""
 
-#: classes/siteguard-rename-login.php:564
+#: classes/siteguard-rename-login.php:605
 msgid ""
 "You requested the login URL.\n"
 "\n"
@@ -1058,15 +1058,15 @@ msgid ""
 "SiteGuard WP Plugin"
 msgstr ""
 
-#: classes/siteguard-rename-login.php:572
+#: classes/siteguard-rename-login.php:613
 msgid "An email has been sent if the address exists."
 msgstr ""
 
-#: classes/siteguard-rename-login.php:607
+#: classes/siteguard-rename-login.php:648
 msgid "WordPress: Login page URL changed"
 msgstr ""
 
-#: classes/siteguard-rename-login.php:608
+#: classes/siteguard-rename-login.php:649
 msgid ""
 "Please bookmark the new login URL.\n"
 "\n"
@@ -1076,7 +1076,42 @@ msgid ""
 "SiteGuard WP Plugin"
 msgstr ""
 
-#: classes/siteguard-rename-login.php:706
+#. translators: 1: plugin name, 2: login URL
+#: classes/siteguard-rename-login.php:1008
+msgid ""
+"%1$s is also changing the login page URL, to the same URL as SiteGuard "
+"(%2$s). In this state the login page can stop working with a PHP fatal "
+"error. Please turn off the login page URL change feature in one of the two "
+"plugins."
+msgstr ""
+
+#. translators: %s: login URL
+#: classes/siteguard-rename-login.php:1015
+msgid ""
+"Another active plugin is also changing the login page URL, to the same URL "
+"as SiteGuard (%s). In this state the login page can stop working with a PHP "
+"fatal error. Please turn off the login page URL change feature in one of the "
+"two plugins."
+msgstr ""
+
+#. translators: 1: plugin name, 2: login URL
+#: classes/siteguard-rename-login.php:1023
+msgid ""
+"%1$s is also changing the login page URL (%2$s). Two different login URLs "
+"stay available, which weakens this feature, and the two can conflict later. "
+"Please use the login page URL change feature in only one of the two plugins."
+msgstr ""
+
+#. translators: %s: login URL
+#: classes/siteguard-rename-login.php:1030
+msgid ""
+"Another active plugin is also changing the login page URL (%s). Two "
+"different login URLs stay available, which weakens this feature, and the two "
+"can conflict later. Please use the login page URL change feature in only one "
+"of the two plugins."
+msgstr ""
+
+#: classes/siteguard-rename-login.php:1063
 msgid ""
 "SiteGuard: Could not create the required login file. Please check file "
 "permissions or contact your hosting provider."
@@ -1154,19 +1189,19 @@ msgstr ""
 msgid "ERROR: Syntax Error in Signature"
 msgstr ""
 
-#: siteguard.php:191
+#: siteguard.php:235
 msgid "The login page URL has been changed."
 msgstr ""
 
-#: siteguard.php:194
+#: siteguard.php:238
 msgid "Please bookmark the %1$s. You can change this setting %2$s."
 msgstr ""
 
-#: siteguard.php:196
+#: siteguard.php:240
 msgid "new login URL"
 msgstr ""
 
-#: siteguard.php:197
+#: siteguard.php:241
 msgid "here"
 msgstr ""
 

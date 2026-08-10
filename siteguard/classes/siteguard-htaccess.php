@@ -5,6 +5,13 @@ class SiteGuard_Htaccess extends SiteGuard_Base {
 	const HTACCESS_MARK_START = '#SITEGUARD_PLUGIN_SETTINGS_START';
 	const HTACCESS_MARK_END   = '#SITEGUARD_PLUGIN_SETTINGS_END';
 
+	// Temporary directory used by test_htaccess(), and how long one may live
+	// before it is considered abandoned. The lifetime has to stay well above
+	// the two wp_remote_get timeouts below, so that a directory belonging to a
+	// self-test that is still running is never swept away by another run.
+	const TEST_DIR_PREFIX  = 'siteguard-test-';
+	const TEST_DIR_MAX_AGE = 300;
+
 	function __construct() {
 	}
 	static function get_htaccess_file() {
@@ -43,7 +50,7 @@ class SiteGuard_Htaccess extends SiteGuard_Base {
 		self::cleanup_orphaned_test_dirs();
 
 
-		$test_dir_name    = 'siteguard-test-' . uniqid();
+		$test_dir_name    = self::TEST_DIR_PREFIX . uniqid();
 		$test_dir_path    = ABSPATH . $test_dir_name;
 		$htaccess_path    = $test_dir_path . '/.htaccess';
 		$php_file_path    = $test_dir_path . '/test.php';
@@ -137,11 +144,23 @@ class SiteGuard_Htaccess extends SiteGuard_Base {
 		return false;
 	}
 	private static function cleanup_orphaned_test_dirs() {
-		$orphans = glob( ABSPATH . 'siteguard-test-*', GLOB_ONLYDIR );
+		$orphans = glob( ABSPATH . self::TEST_DIR_PREFIX . '*', GLOB_ONLYDIR );
 		if ( empty( $orphans ) ) {
 			return;
 		}
+		// Only sweep directories old enough that no self-test can still be
+		// waiting on them. Several self-tests can be in flight at once (the
+		// upgrade path calls feature_on() on every request until the version is
+		// recorded), and deleting a directory that another run has just created
+		// makes that run's request 404 — which it would read as "the .htaccess
+		// rewrite does not work here" and fall back to stub (.php) mode even
+		// though .htaccess is perfectly usable.
+		$threshold = time() - self::TEST_DIR_MAX_AGE;
 		foreach ( $orphans as $dir ) {
+			$mtime = @filemtime( $dir );
+			if ( false !== $mtime && $mtime > $threshold ) {
+				continue;
+			}
 			$entries = @scandir( $dir );
 			if ( is_array( $entries ) ) {
 				foreach ( $entries as $entry ) {
