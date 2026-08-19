@@ -32,30 +32,46 @@ class SiteGuard_Menu_Updates_Notify extends SiteGuard_Base {
 				echo '</strong></p></div>';
 				$error = true;
 			}
+			// A radio group renders with nothing checked when its stored value is
+			// missing or unrecognized, and a group with no selection is not sent
+			// with the form. Reading $_POST directly then failed the validation
+			// below, so the one page that can turn the feature off -- and clear
+			// its cron event -- could not be saved on exactly the configurations
+			// that need it. An absent value means the disabled choice: a group the
+			// user did select is always posted, so nothing can be enabled by this.
+			$post_enable  = isset( $_POST[ self::OPT_NAME_ENABLE ] ) ? sanitize_text_field( $_POST[ self::OPT_NAME_ENABLE ] ) : '0';
+			$post_wpcore  = isset( $_POST[ self::OPT_NAME_WPCORE ] ) ? sanitize_text_field( $_POST[ self::OPT_NAME_WPCORE ] ) : '0';
+			$post_plugins = isset( $_POST[ self::OPT_NAME_PLUGINS ] ) ? sanitize_text_field( $_POST[ self::OPT_NAME_PLUGINS ] ) : '0';
+			$post_themes  = isset( $_POST[ self::OPT_NAME_THEMES ] ) ? sanitize_text_field( $_POST[ self::OPT_NAME_THEMES ] ) : '0';
 			if ( ( false === $error )
-				&& ( ( false === $this->is_switch_value( $_POST[ self::OPT_NAME_ENABLE ] ) )
-				|| ( false === $this->is_switch_value( $_POST[ self::OPT_NAME_WPCORE ] ) )
-				|| ( false === $this->is_notify_value( $_POST[ self::OPT_NAME_PLUGINS ] ) )
-				|| ( false === $this->is_notify_value( $_POST[ self::OPT_NAME_THEMES ] ) ) ) ) {
+				&& ( ( false === $this->is_switch_value( $post_enable ) )
+				|| ( false === $this->is_switch_value( $post_wpcore ) )
+				|| ( false === $this->is_notify_value( $post_plugins ) )
+				|| ( false === $this->is_notify_value( $post_themes ) ) ) ) {
 				echo '<div class="error settings-error"><p><strong>';
 				esc_html_e( 'ERROR: Invalid input value.', 'siteguard' );
 				echo '</strong></p></div>';
 				$error = true;
 			}
-			if ( false === $error && '1' === $_POST[ self::OPT_NAME_ENABLE ] ) {
+			if ( false === $error && '1' === $post_enable ) {
 				$ret = $siteguard_updates_notify->check_requirements();
 				if ( is_wp_error( $ret ) ) {
 					echo '<div class="error settings-error"><p><strong>' . esc_html( $ret->get_error_message() ) . '</strong></p></div>';
 					$error = true;
 					$siteguard_config->set( self::OPT_NAME_ENABLE, '0' );
 					$siteguard_config->update();
+					// The stored setting now says OFF, so the cron event goes with
+					// it. Without this an event from an earlier ON state keeps
+					// sending notifications on a site whose settings page shows the
+					// feature as off and refuses to turn it on.
+					SiteGuard_UpdatesNotify::feature_off();
 				}
 			}
 			if ( false === $error ) {
-				$opt_val_enable  = sanitize_text_field( $_POST[ self::OPT_NAME_ENABLE ] );
-				$opt_val_wpcore  = sanitize_text_field( $_POST[ self::OPT_NAME_WPCORE ] );
-				$opt_val_plugins = sanitize_text_field( $_POST[ self::OPT_NAME_PLUGINS ] );
-				$opt_val_themes  = sanitize_text_field( $_POST[ self::OPT_NAME_THEMES ] );
+				$opt_val_enable  = $post_enable;
+				$opt_val_wpcore  = $post_wpcore;
+				$opt_val_plugins = $post_plugins;
+				$opt_val_themes  = $post_themes;
 				$siteguard_config->set( self::OPT_NAME_ENABLE, $opt_val_enable );
 				$siteguard_config->set( self::OPT_NAME_WPCORE, $opt_val_wpcore );
 				$siteguard_config->set( self::OPT_NAME_PLUGINS, $opt_val_plugins );

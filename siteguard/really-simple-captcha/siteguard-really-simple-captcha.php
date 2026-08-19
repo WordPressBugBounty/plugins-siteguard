@@ -67,10 +67,20 @@ class SiteGuardReallySimpleCaptcha extends SiteGuard_Base {
 	 * plugin strips this prefix when reading the file via the filesystem. */
 	const ANSWER_FILE_PREFIX = '<?php exit; ?>';
 
+	/**
+	 * Directory holding the CAPTCHA images and answer files.
+	 *
+	 * Static so that the capability check can ask for the path without building
+	 * an instance, and so the path is written down in exactly one place.
+	 */
+	public static function get_tmp_dir() {
+		return path_join( WP_CONTENT_DIR, 'siteguard' );
+	}
+
 	public function __construct() {
 		$this->lang_mode        = 'jp';
 		$this->char_length      = 4;
-		$this->tmp_dir          = path_join( WP_CONTENT_DIR, 'siteguard' );
+		$this->tmp_dir          = self::get_tmp_dir();
 		$this->ans_dir          = $this->tmp_dir; // answer files live alongside images; see $ans_dir doc.
 		$this->img_size         = array( 72, 24 );
 		$this->base             = array( 6, 18 );
@@ -107,6 +117,14 @@ class SiteGuardReallySimpleCaptcha extends SiteGuard_Base {
 		 * @return string|bool The image filename (e.g. 12345.png) or false on failure. //
 		 */
 	public function generate_image( $prefix, $word ) {
+		// Same test as SiteGuard_CAPTCHA::is_image_rendering_available(), repeated
+		// here so this file stays independent of the plugin classes. Callers are
+		// expected to skip the CAPTCHA when the server cannot draw it; this makes
+		// sure a caller that forgets gets `false` and a missing image rather than
+		// a call to an undefined function and a 500 on the login page.
+		if ( ! function_exists( 'imagecreatetruecolor' ) || ! function_exists( 'imagettftext' ) || ! function_exists( 'imagepng' ) ) {
+			return false;
+		}
 		if ( ! $this->make_tmp_dir() ) {
 			return false;
 		}
@@ -170,25 +188,33 @@ class SiteGuardReallySimpleCaptcha extends SiteGuard_Base {
 				$x += $this->font_char_width;
 			}
 
+				$written = false;
 			switch ( $this->img_type ) {
 				case 'jpeg':
 						$filename = sanitize_file_name( $prefix . '.jpeg' );
 						$file     = $this->normalize_path( $dir . $filename );
-						imagejpeg( $im, $file );
+						$written  = imagejpeg( $im, $file );
 					break;
 				case 'gif':
 						$filename = sanitize_file_name( $prefix . '.gif' );
 						$file     = $this->normalize_path( $dir . $filename );
-						imagegif( $im, $file );
+						$written  = imagegif( $im, $file );
 					break;
 				case 'png':
 				default:
 						$filename = sanitize_file_name( $prefix . '.png' );
 						$file     = $this->normalize_path( $dir . $filename );
-						imagepng( $im, $file );
+						$written  = imagepng( $im, $file );
 			}
 
 				imagedestroy( $im );
+			// The return value used to be ignored, so a failed write still handed
+			// the caller a filename and the form pointed at an image that was
+			// never created.
+			if ( ! $written ) {
+				siteguard_error_log( 'failed to write image file (' . $file . '). :' . __FILE__ );
+				return false;
+			}
 				@chmod( $file, $this->file_mode );
 		}
 
@@ -335,6 +361,15 @@ class SiteGuardReallySimpleCaptcha extends SiteGuard_Base {
 		$dir = $this->normalize_path( trailingslashit( $this->tmp_dir ) );
 		if ( ! wp_mkdir_p( $dir ) ) {
 			siteguard_error_log( 'failed to make directory (' . $dir . '). :' . __FILE__ );
+			return false;
+		}
+		// wp_mkdir_p() reports success for a directory that already exists, whoever
+		// owns it. Without this, a directory created by WP-CLI under another user
+		// passed every check while the web server could not write a single file
+		// into it -- the image and the answer file both silently failed and no
+		// response could ever be accepted.
+		if ( ! is_writable( $dir ) ) {
+			siteguard_error_log( 'directory is not writable (' . $dir . '). :' . __FILE__ );
 			return false;
 		}
 		// minimal index to avoid directory listing (harmless on Nginx with autoindex off)

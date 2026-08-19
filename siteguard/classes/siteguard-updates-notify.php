@@ -32,6 +32,11 @@ class SiteGuard_UpdatesNotify extends SiteGuard_Base {
 		} else {
 			$siteguard_config->set( 'updates_notify_enable', '0' );
 			$siteguard_config->update();
+			// The feature reads as OFF from here on, so the cron event has to go
+			// with it. An event scheduled while the requirements were still met
+			// survives an install whose deactivation hook never ran (a directory
+			// replaced over FTP, for instance), and it would keep sending mail.
+			self::feature_off();
 		}
 	}
 	public static function check_requirements() {
@@ -82,19 +87,36 @@ class SiteGuard_UpdatesNotify extends SiteGuard_Base {
 
 	public function do_update_check() {
 		global $siteguard_config;
+		// The setting decides, not the presence of the cron event. The two can
+		// drift apart -- the event outlives an install whose deactivation hook
+		// never ran, and it used to be left behind whenever check_requirements()
+		// turned the feature off -- and this handler is registered on every
+		// request regardless of the setting. Sites in that state kept sending
+		// notifications with the setting showing OFF. Drop the orphaned event on
+		// the way out so those installs repair themselves on the next run.
+		if ( '1' != $siteguard_config->get( 'updates_notify_enable' ) ) {
+			self::feature_off();
+			return;
+		}
 		$message = ''; // start with a blank message //
-		if ( '0' != $siteguard_config->get( 'notify_wpcore' ) ) {  // are we to check for WordPress core?
+		// Only the values the settings page can produce enable a check. The test
+		// used to be `'0' != get()`, and get() returns '' for a key that is not
+		// stored, so a configuration missing these keys counted as fully enabled.
+		$notify_wpcore  = $siteguard_config->get( 'notify_wpcore' );
+		$notify_plugins = $siteguard_config->get( 'notify_plugins' );
+		$notify_themes  = $siteguard_config->get( 'notify_themes' );
+		if ( '1' == $notify_wpcore ) {  // are we to check for WordPress core?
 			$core_updated = self::core_update_check( $message ); // check the WP core for updates
 		} else {
 			$core_updated = false; // no core updates
 		}
-		if ( '0' != $siteguard_config->get( 'notify_plugins' ) ) { // are we to check for plugin updates? //
-			$plugins_updated = self::plugins_update_check( $message, $siteguard_config->get( 'notify_plugins' ) ); // check for plugin updates
+		if ( '1' == $notify_plugins || '2' == $notify_plugins ) { // are we to check for plugin updates? //
+			$plugins_updated = self::plugins_update_check( $message, $notify_plugins ); // check for plugin updates
 		} else {
 			$plugins_updated = false; // no plugin updates
 		}
-		if ( '0' != $siteguard_config->get( 'notify_themes' ) ) { // are we to check for theme updates? //
-			$themes_updated = self::themes_update_check( $message, $siteguard_config->get( 'notify_themes' ) ); // check for theme updates //
+		if ( '1' == $notify_themes || '2' == $notify_themes ) { // are we to check for theme updates? //
+			$themes_updated = self::themes_update_check( $message, $notify_themes ); // check for theme updates //
 		} else {
 			$themes_updated = false; // no theme updates
 		}

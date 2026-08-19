@@ -3,8 +3,8 @@ Contributors: jp-secure, egsecuresolutions
 Donate link: -
 Tags: security, login lock, login alert, captcha, pingback
 Requires at least: 6.0
-Tested up to: 7.0
-Stable tag: 1.8.8
+Tested up to: 7.1
+Stable tag: 1.8.9
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -67,6 +67,15 @@ This plugin is translated by the community. We appreciate your help with transla
 For FAQs, see the [English](https://www.jp-secure.com/siteguard_wp_plugin_en/faq.html) or [Japanese](https://www.jp-secure.com/siteguard_wp_plugin/faq.html) documentation.
 
 == Changelog ==
+
+= 1.8.9 =
+
+* Update Notifications: fixed notification emails still being sent while the feature was set to OFF.
+* CAPTCHA: fixed a fatal error on the login page on servers that cannot render the CAPTCHA image. CAPTCHA is now skipped so that login remains available, and the reason is shown on the settings screen.
+* CAPTCHA: fixed login becoming impossible when the CAPTCHA working directory could not be written to by the web server. This is now detected and reported instead of failing silently.
+* Confirmed compatibility with WordPress 7.1.
+
+Special thanks to miruko for the update notification report.
 
 = 1.8.8 =
 

@@ -525,15 +525,27 @@ class SiteGuard_RenameLogin extends SiteGuard_Base {
 	}
 
 	private function render_rescue_form( $errors = array(), $email_value = '' ) {
-		$captcha  = new SiteGuardReallySimpleCaptcha();
-		$language = get_bloginfo( 'language' );
-		( strpos( $language, 'ja' ) === 0 ) ? $captcha->set_lang_mode( 'jp' ) : $captcha->set_lang_mode( 'en' );
-		$prefix = siteguard_rand();
-		$word   = $captcha->generate_random_word();
-		$captcha->generate_image( $prefix, $word );
+		// This form is what an administrator locked out of the login page has
+		// left, and it draws the same CAPTCHA image. On a server that cannot
+		// render one, generating it here would take the rescue path down with the
+		// same 500 as the login page. Show the form without the CAPTCHA instead:
+		// the rate limit of three attempts per hour per IP, the fixed delay and
+		// the identical response whether or not the address exists all still
+		// apply, so this does not turn into a usable oracle.
+		$captcha_available = SiteGuard_CAPTCHA::is_captcha_available();
+		$prefix            = '';
+		$imgsrc            = '';
+		if ( $captcha_available ) {
+			$captcha  = new SiteGuardReallySimpleCaptcha();
+			$language = get_bloginfo( 'language' );
+			( strpos( $language, 'ja' ) === 0 ) ? $captcha->set_lang_mode( 'jp' ) : $captcha->set_lang_mode( 'en' );
+			$prefix = siteguard_rand();
+			$word   = $captcha->generate_random_word();
+			$captcha->generate_image( $prefix, $word );
+			$imgsrc = esc_url( WP_CONTENT_URL . '/siteguard/' . $prefix . '.png' );
+		}
 
 		$action = esc_url( add_query_arg( 'siteguard_rescue', '1', site_url( '/' ) ) );
-		$imgsrc = esc_url( WP_CONTENT_URL . '/siteguard/' . $prefix . '.png' );
 
 		nocache_headers();
 		echo '<!DOCTYPE html><html><head><meta charset="' . esc_attr( get_bloginfo( 'charset' ) ) . '">';
@@ -557,11 +569,13 @@ class SiteGuard_RenameLogin extends SiteGuard_Base {
 		echo '<input type="email" name="siteguard_rescue_email" value="' . esc_attr( $email_value ) . '" required style="min-width:280px;" />';
 		echo '</label></p>';
 
-		echo '<p><img src="' . $imgsrc . '" alt="CAPTCHA" /></p>';
-		echo '<p><label>' . esc_html__( 'Enter the characters shown above', 'siteguard' ) . '<br />';
-		echo '<input type="text" name="siteguard_captcha" value="" size="10" required />';
-		echo '</label></p>';
-		echo '<input type="hidden" name="siteguard_captcha_prefix" value="' . esc_attr( $prefix ) . '" />';
+		if ( $captcha_available ) {
+			echo '<p><img src="' . $imgsrc . '" alt="CAPTCHA" /></p>';
+			echo '<p><label>' . esc_html__( 'Enter the characters shown above', 'siteguard' ) . '<br />';
+			echo '<input type="text" name="siteguard_captcha" value="" size="10" required />';
+			echo '</label></p>';
+			echo '<input type="hidden" name="siteguard_captcha_prefix" value="' . esc_attr( $prefix ) . '" />';
+		}
 
 		echo '<p><button type="submit">' . esc_html__( 'Send email', 'siteguard' ) . '</button></p>';
 		echo '</form>';
@@ -605,10 +619,15 @@ class SiteGuard_RenameLogin extends SiteGuard_Base {
 			$errors[] = esc_html__( 'Please enter a valid email address.', 'siteguard' );
 		}
 
-		$captcha       = new SiteGuardReallySimpleCaptcha();
-		$valid_captcha = ( $pref !== '' && $cap !== '' && $captcha->check( $pref, $cap, true ) );
-		if ( ! $valid_captcha ) {
-			$errors[] = esc_html__( 'Invalid CAPTCHA.', 'siteguard' );
+		// Verify only what the form was able to present. render_rescue_form()
+		// leaves the CAPTCHA out when the server cannot draw one, and demanding it
+		// here would reject every submission and close the rescue path for good.
+		if ( SiteGuard_CAPTCHA::is_captcha_available() ) {
+			$captcha       = new SiteGuardReallySimpleCaptcha();
+			$valid_captcha = ( $pref !== '' && $cap !== '' && $captcha->check( $pref, $cap, true ) );
+			if ( ! $valid_captcha ) {
+				$errors[] = esc_html__( 'Invalid CAPTCHA.', 'siteguard' );
+			}
 		}
 
 		if ( ! empty( $errors ) ) {

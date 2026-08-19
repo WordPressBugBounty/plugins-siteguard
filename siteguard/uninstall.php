@@ -28,6 +28,13 @@ function delete_siteguard_plugin() {
 
 	delete_option( 'siteguard_config' );
 
+	// Deleting the plugin deactivates it first, which already clears this event,
+	// but an uninstall that reaches this point with the event still scheduled
+	// would leave it in the cron table with no handler and no settings behind it.
+	// The name is duplicated from SiteGuard_UpdatesNotify::CRON_NAME because the
+	// plugin classes are not loaded during uninstall.
+	wp_clear_scheduled_hook( 'siteguard_update_check' );
+
 	$table_name = $wpdb->prefix . 'siteguard_login';
 	$wpdb->query( "DROP TABLE IF EXISTS $table_name;" );
 
