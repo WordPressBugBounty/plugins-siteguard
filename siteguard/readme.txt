@@ -4,7 +4,7 @@ Donate link: -
 Tags: security, login lock, login alert, captcha, pingback
 Requires at least: 6.0
 Tested up to: 7.1
-Stable tag: 1.8.9
+Stable tag: 1.8.10
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -67,6 +67,13 @@ This plugin is translated by the community. We appreciate your help with transla
 For FAQs, see the [English](https://www.jp-secure.com/siteguard_wp_plugin_en/faq.html) or [Japanese](https://www.jp-secure.com/siteguard_wp_plugin/faq.html) documentation.
 
 == Changelog ==
+
+= 1.8.10 =
+
+* Login Lock: fixed the lock never engaging when the WordPress time zone was behind the database server's time zone (for example, WordPress set to UTC and MySQL to JST).
+* Admin Page IP Filter: fixed the 24-hour allow period becoming shorter or longer when the WordPress and database time zones differ. Times are now compared in the WordPress time zone throughout.
+
+Special thanks to hypeinai for the time zone report.
 
 = 1.8.9 =
 

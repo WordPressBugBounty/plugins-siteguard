@@ -38,17 +38,20 @@ class SiteGuard_LoginLock extends SiteGuard_Base {
 
 		$ip_address = $this->get_ip();
 
+		// last_login_time is stored in WordPress local time, so compare it against
+		// that rather than SYSDATE(), whose time zone is the database's.
+		$now_str = current_time( 'mysql' );
+		$now_bin = strtotime( $now_str );
+
 		$wpdb->query( 'START TRANSACTION' );
-		$wpdb->query( $wpdb->prepare( "DELETE FROM $table_name WHERE status <> %d AND last_login_time < SYSDATE() - INTERVAL 1 HOUR;", SITEGUARD_LOGIN_SUCCESS ) );
-		$result  = $wpdb->get_row( $wpdb->prepare( "SELECT status, count, last_login_time from $table_name WHERE ip_address = %s", $ip_address ) );
-		$data    = array(
+		$wpdb->query( $wpdb->prepare( "DELETE FROM $table_name WHERE status <> %d AND last_login_time < %s - INTERVAL 1 HOUR;", SITEGUARD_LOGIN_SUCCESS, $now_str ) );
+		$result = $wpdb->get_row( $wpdb->prepare( "SELECT status, count, last_login_time from $table_name WHERE ip_address = %s", $ip_address ) );
+		$data   = array(
 			'ip_address'      => $ip_address,
 			'status'          => SITEGUARD_LOGIN_FAILED,
 			'count'           => 1,
 			'last_login_time' => 0,
 		);
-		$now_str = current_time( 'mysql' );
-		$now_bin = strtotime( $now_str );
 		if ( null === $result ) {
 			$data['last_login_time'] = $now_str;
 			$wpdb->insert( $table_name, $data );

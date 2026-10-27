@@ -54,16 +54,18 @@ class SiteGuard_AdminFilter extends SiteGuard_Base {
 	private function cleanup_and_upsert_success_ip( $ip_address ) {
 		global $wpdb;
 		$table_name = $wpdb->prefix . SITEGUARD_TABLE_LOGIN;
+		// last_login_time is stored in WordPress local time, not the database's.
+		$now_str = current_time( 'mysql' );
 
 		$wpdb->query(
 			$wpdb->prepare(
-				"DELETE FROM $table_name WHERE status = %d AND last_login_time < (SYSDATE() - INTERVAL 1 DAY)",
-				SITEGUARD_LOGIN_SUCCESS
+				"DELETE FROM $table_name WHERE status = %d AND last_login_time < (%s - INTERVAL 1 DAY)",
+				SITEGUARD_LOGIN_SUCCESS,
+				$now_str
 			)
 		);
 
 		// upsert
-		$now_str = current_time( 'mysql' );
 		$data    = array(
 			'ip_address'      => $ip_address,
 			'status'          => SITEGUARD_LOGIN_SUCCESS,
@@ -139,9 +141,10 @@ class SiteGuard_AdminFilter extends SiteGuard_Base {
 		$table = $wpdb->prefix . SITEGUARD_TABLE_LOGIN;
 		$ok    = $wpdb->get_var(
 			$wpdb->prepare(
-				"SELECT 1 FROM $table WHERE ip_address = %s AND status = %d AND last_login_time >= (SYSDATE() - INTERVAL 1 DAY) LIMIT 1",
+				"SELECT 1 FROM $table WHERE ip_address = %s AND status = %d AND last_login_time >= (%s - INTERVAL 1 DAY) LIMIT 1",
 				$ip,
-				SITEGUARD_LOGIN_SUCCESS
+				SITEGUARD_LOGIN_SUCCESS,
+				current_time( 'mysql' )
 			)
 		);
 		if ( $ok ) {
