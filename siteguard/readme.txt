@@ -4,7 +4,7 @@ Donate link: -
 Tags: security, login lock, login alert, captcha, pingback
 Requires at least: 6.0
 Tested up to: 7.1
-Stable tag: 1.8.10
+Stable tag: 1.8.11
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -67,6 +67,13 @@ This plugin is translated by the community. We appreciate your help with transla
 For FAQs, see the [English](https://www.jp-secure.com/siteguard_wp_plugin_en/faq.html) or [Japanese](https://www.jp-secure.com/siteguard_wp_plugin/faq.html) documentation.
 
 == Changelog ==
+
+= 1.8.11 =
+
+* CAPTCHA: fixed CAPTCHA not appearing on the login page on Windows (IIS) servers since 1.8.9. The check for whether the CAPTCHA working directory is writable wrongly reported it as unwritable on Windows, so CAPTCHA was skipped.
+* CAPTCHA: removed a call to imagedestroy(), which is deprecated as of PHP 8.5.
+
+Special thanks to wpdmok for the Windows CAPTCHA report and tatakahide for the PHP 8.5 report.
 
 = 1.8.10 =
 

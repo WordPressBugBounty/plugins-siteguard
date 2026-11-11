@@ -43,6 +43,10 @@ class SiteGuard_CAPTCHA extends SiteGuard_Base {
 	 * The directory is created on first use, so until it exists the question is
 	 * whether it can be created, which is a property of the parent. Memoized: the
 	 * answer cannot change within a request, and this is on the front-end path.
+	 *
+	 * wp_is_writable() and not is_writable(): on Windows is_writable() reports a
+	 * directory the web server can write to as unwritable, and the CAPTCHA
+	 * vanished from the login page on IIS from 1.8.9 on.
 	 */
 	public static function is_answer_dir_writable() {
 		static $writable = null;
@@ -50,7 +54,7 @@ class SiteGuard_CAPTCHA extends SiteGuard_Base {
 			return $writable;
 		}
 		$dir      = SiteGuardReallySimpleCaptcha::get_tmp_dir();
-		$writable = is_dir( $dir ) ? is_writable( $dir ) : is_writable( WP_CONTENT_DIR );
+		$writable = is_dir( $dir ) ? wp_is_writable( $dir ) : wp_is_writable( WP_CONTENT_DIR );
 		return $writable;
 	}
 

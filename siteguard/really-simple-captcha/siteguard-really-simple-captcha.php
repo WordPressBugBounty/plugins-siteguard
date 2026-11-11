@@ -207,7 +207,9 @@ class SiteGuardReallySimpleCaptcha extends SiteGuard_Base {
 						$written  = imagepng( $im, $file );
 			}
 
-				imagedestroy( $im );
+			// No imagedestroy(): it has been a no-op since PHP 8.0 and is
+			// deprecated in 8.5. On 7.x $im is freed when this function returns.
+
 			// The return value used to be ignored, so a failed write still handed
 			// the caller a filename and the form pointed at an image that was
 			// never created.
@@ -367,8 +369,9 @@ class SiteGuardReallySimpleCaptcha extends SiteGuard_Base {
 		// owns it. Without this, a directory created by WP-CLI under another user
 		// passed every check while the web server could not write a single file
 		// into it -- the image and the answer file both silently failed and no
-		// response could ever be accepted.
-		if ( ! is_writable( $dir ) ) {
+		// response could ever be accepted. wp_is_writable() because is_writable()
+		// is not reliable on Windows.
+		if ( ! wp_is_writable( $dir ) ) {
 			siteguard_error_log( 'directory is not writable (' . $dir . '). :' . __FILE__ );
 			return false;
 		}
